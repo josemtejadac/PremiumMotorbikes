@@ -2517,7 +2517,7 @@ async function generarPDF(s){
   const W=210, M=14; let y=14;
   // encabezado
   const logo=await loadImg('./logo.png');
-  if (logo){ try{ doc.addImage(logo,'PNG',M,y,44,20); }catch(e){} }
+  if (logo){ try{ doc.addImage(logo,'PNG',M,y,22,22); }catch(e){} }
   doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(90);
   doc.text(CONFIG.taller.nombre.toUpperCase(),W-M,y+6,{align:'right'});
   doc.setFont('helvetica','normal'); doc.setTextColor(120);
