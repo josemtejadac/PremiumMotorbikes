@@ -3549,71 +3549,188 @@ $('#cEnviar').onclick = ()=>{
 };
 
 /* --- PDF de la cotización --- */
+function rangoProxMant(cc, categoria){
+  const c = categoria || '';
+  if (c.includes('125') || (Number(cc)>0 && Number(cc)<=250)) return '2.500 – 3.000 km';
+  if (c.includes('300') || c.includes('bigtrail_300') || (Number(cc)>250 && Number(cc)<=500)) return '4.000 – 5.000 km';
+  return '5.000 – 6.000 km';
+}
 async function cotizaPDF(){
   const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'});
-  const W=210, M=14; let y=14;
+  const W=210, M=14, RX=W-M;
+  const NEGRO=[13,15,19], VERDE=[179,252,6], VERDE_TXT=[77,124,15], GRIS_CLARO=[245,246,248];
+  const pad2=n=>String(n).padStart(2,'0');
   const logo=await loadImg('./logo.png');
-  if (logo){ try{ doc.addImage(logo,'PNG',M,y,44,20); }catch(e){} }
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(CONFIG.taller.nombre.toUpperCase(),W-M,y+6,{align:'right'});
-  doc.setFont('helvetica','normal'); doc.setTextColor(120);
-  doc.text(CONFIG.taller.subtitulo,W-M,y+11,{align:'right'});
-  doc.text('Tel: '+CONFIG.taller.telefono,W-M,y+16,{align:'right'});
-  if (CONFIG.taller.direccion) doc.text(CONFIG.taller.direccion,W-M,y+21,{align:'right'});
-  y+=30;
-  doc.setDrawColor(13,15,19); doc.setLineWidth(1); doc.line(M,y,W-M,y); y+=8;
 
+  /* ---------- header ---------- */
+  const HH=40;
+  doc.setFillColor(...NEGRO); doc.rect(0,0,W,HH,'F');
+  doc.setFillColor(...VERDE); doc.rect(0,HH,W,1.6,'F');
+  if (logo){ try{ doc.addImage(logo,'PNG',M,7,26,26); }catch(e){} }
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(255,255,255);
+  doc.text('PREMIUM MOTORBIKES',RX,13,{align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(200,200,200);
+  doc.text(CONFIG.taller.subtitulo,RX,18.5,{align:'right'});
+
+  doc.setFontSize(8.5);
+  let ry=25;
+  [CONFIG.taller.telefono, CONFIG.taller.direccion, CONFIG.authDomain||'premiummotorbikes.cl'].forEach(t=>{
+    if (!t) return;
+    const tw=doc.getTextWidth(t);
+    doc.setFillColor(...VERDE); doc.circle(RX-tw-3.5,ry-1.2,1,'F');
+    doc.setTextColor(215,215,215);
+    doc.text(t,RX,ry,{align:'right'}); ry+=4.8;
+  });
+
+  /* ---------- título ---------- */
+  let y=52;
   const marca = cot.marca || $('#cMarcaManual').value.trim() || '—';
   const modelo = cot.modelo || $('#cModeloManual').value.trim() || '—';
-  doc.setTextColor(20); doc.setFont('helvetica','bold'); doc.setFontSize(15);
-  doc.text('COTIZACIÓN DE MANTENCIÓN',M,y);
-  doc.setFontSize(9); doc.setTextColor(77,124,15);
-  doc.text(new Date().toLocaleDateString('es-CL'),W-M,y,{align:'right'});
-  y+=8;
+  doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.setTextColor(...NEGRO);
+  doc.text('COTIZACIÓN ',M,y);
+  const w1=doc.getTextWidth('COTIZACIÓN ');
+  doc.setTextColor(...VERDE_TXT); doc.text('DE MANTENCIÓN',M+w1,y);
 
-  doc.setFillColor(245,246,248); doc.roundedRect(M,y,W-M*2,16,2,2,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(77,124,15);
-  doc.text('MOTOCICLETA',M+4,y+6);
-  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-  doc.text(`${marca} ${modelo}${cot.cc?'  ·  '+cot.cc+' cc':''}  ·  ${CAT_LABEL[cot.categoria]||''}`,M+4,y+12);
-  y+=22;
+  const hoy=new Date();
+  const folio='PMB-'+hoy.getFullYear()+'-'+pad2(hoy.getMonth()+1)+pad2(hoy.getDate());
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...VERDE_TXT);
+  doc.text('COTIZACIÓN N°',RX,y-8,{align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...NEGRO);
+  doc.text(folio,RX,y-3,{align:'right'});
+  doc.setFontSize(8); doc.setTextColor(140);
+  doc.text(hoy.toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'}),RX,y+3,{align:'right'});
+  y+=12;
 
-  doc.setFillColor(22,24,28); doc.rect(M,y,W-M*2,8,'F');
+  /* ---------- tarjeta moto ---------- */
+  const cardH=24;
+  doc.setFillColor(...GRIS_CLARO); doc.roundedRect(M,y,W-M*2,cardH,3,3,'F');
+  doc.setFillColor(...VERDE); doc.roundedRect(M,y,cardH,cardH,3,3,'F');
+  doc.setFillColor(...VERDE); doc.rect(M+cardH-3,y,3,cardH,'F'); // cuadra el borde derecho del cuadro verde
+  const bx=M+cardH/2, by=y+cardH/2+1;
+  doc.setDrawColor(255,255,255); doc.setLineWidth(1);
+  doc.circle(bx-4.5,by+2.5,2.6); doc.circle(bx+4.5,by+2.5,2.6);
+  doc.line(bx-4.5,by+2.5,bx-1,by-1.5); doc.line(bx-1,by-1.5,bx+4.5,by+2.5); doc.line(bx-1,by-1.5,bx-1,by-4);
+  const tx=M+cardH+6;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...VERDE_TXT);
+  doc.text('MOTOCICLETA',tx,y+8);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...NEGRO);
+  doc.text(`${marca} ${modelo}`.trim(),tx,y+15);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(120);
+  const sub=[cot.cc?cot.cc+' cc':'', CAT_LABEL[cot.categoria]||''].filter(Boolean).join('  ·  ');
+  if (sub) doc.text(sub,tx,y+20.5);
+  y+=cardH+8;
+
+  /* ---------- tabla detalle ---------- */
+  doc.setFillColor(...NEGRO); doc.rect(M,y,W-M*2,8,'F');
   doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  doc.text('DETALLE',M+3,y+5.5); doc.text('VALOR',W-M-3,y+5.5,{align:'right'}); y+=8;
+  doc.text('DETALLE',M+3,y+5.5); doc.text('VALOR',RX-3,y+5.5,{align:'right'}); y+=8;
   doc.setFont('helvetica','normal'); doc.setTextColor(30);
   let i=0;
   if (cot.plan){
     const pr=(CONFIG.precios[cot.categoria]||{})[cot.plan]||0;
     if (i%2){ doc.setFillColor(248,249,250); doc.rect(M,y,W-M*2,7,'F'); }
     doc.text(PLAN_META[cot.plan].nombre+' · '+(CAT_LABEL[cot.categoria]||''),M+3,y+5);
-    doc.text(money(pr),W-M-3,y+5,{align:'right'}); y+=7; i++;
+    doc.text(money(pr),RX-3,y+5,{align:'right'}); y+=7; i++;
   }
   for (const [id,n] of Object.entries(cot.insumos)){
     const p=productos.find(x=>x.id===id); if(!p||n<1) continue;
     if (i%2){ doc.setFillColor(248,249,250); doc.rect(M,y,W-M*2,7,'F'); }
     doc.text(`${p.nombre} × ${n}`,M+3,y+5);
-    doc.text(money(precioFinal(p)*n),W-M-3,y+5,{align:'right'}); y+=7; i++;
+    doc.text(money(precioFinal(p)*n),RX-3,y+5,{align:'right'}); y+=7; i++;
   }
   (cot.extras||[]).forEach((e)=>{
     if (i%2){ doc.setFillColor(248,249,250); doc.rect(M,y,W-M*2,7,'F'); }
     const d=doc.splitTextToSize(e.desc||'—', W-M*2-40);
     doc.text(d[0],M+3,y+5);
-    doc.text(money(e.monto),W-M-3,y+5,{align:'right'}); y+=7; i++;
+    doc.text(money(e.monto),RX-3,y+5,{align:'right'}); y+=7; i++;
   });
-  doc.setDrawColor(200); doc.line(M,y,W-M,y); y+=2;
-  doc.setFillColor(13,15,19); doc.roundedRect(W-M-82,y,82,11,2,2,'F');
-  doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(11);
-  doc.text('TOTAL ESTIMADO',W-M-78,y+7.3); doc.text(money(totalCot()),W-M-3,y+7.3,{align:'right'});
-  y+=18;
+  doc.setDrawColor(210); doc.setLineWidth(0.2); doc.line(M,y,RX,y); y+=2;
 
-  const nkm = cot.plan ? textoProxMant(cot.plan, cot.cc, cot.categoria) : '';
-  if (nkm){ doc.setTextColor(77,124,15); doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.text(nkm,M,y); y+=7; }
-  doc.setTextColor(120); doc.setFont('helvetica','italic'); doc.setFontSize(8);
-  const nota=doc.splitTextToSize('Valor referencial. El precio final puede variar si la motocicleta requiere trabajos o repuestos adicionales, lo que se informará antes de realizarlos. Cotización válida por 15 días.',W-M*2);
-  doc.text(nota,M,y); y+= nota.length*4+3;
-  doc.setFont('helvetica','normal'); doc.setTextColor(90);
-  if (CONFIG.taller.horario){ doc.text('Horario: '+CONFIG.taller.horario,M,y); }
+  /* ---------- total (dos tonos, ancho completo) ---------- */
+  const totH=12, splitX=M+(W-M*2)*0.6;
+  doc.setFillColor(...NEGRO); doc.rect(M,y,splitX-M,totH,'F');
+  doc.setFillColor(...VERDE); doc.rect(splitX,y,RX-splitX,totH,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.setTextColor(255,255,255); doc.text('TOTAL ESTIMADO',M+5,y+totH/2,{baseline:'middle'});
+  doc.setTextColor(...NEGRO); doc.text(money(totalCot()),RX-4,y+totH/2,{align:'right',baseline:'middle'});
+  y+=totH+9;
+
+  /* ---------- próxima mantención (según cilindrada) ---------- */
+  const rango=rangoProxMant(cot.cc, cot.categoria);
+  const boxH=22;
+  doc.setDrawColor(...VERDE); doc.setLineWidth(0.5); doc.setFillColor(250,255,238);
+  doc.roundedRect(M,y,W-M*2,boxH,3,3,'FD');
+  doc.setFillColor(...VERDE); doc.circle(M+13,y+boxH/2,6,'F');
+  doc.setDrawColor(...NEGRO); doc.setLineWidth(0.6);
+  doc.rect(M+13-3,y+boxH/2-2.2,6,5); doc.line(M+13-3,y+boxH/2-0.2,M+13+3,y+boxH/2-0.2);
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...NEGRO);
+  doc.text('Próxima mantención:',M+25,y+8.5);
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...VERDE_TXT);
+  doc.text(`entre ${rango},`,M+25,y+14);
+  doc.text('una vez al año o por uso exhaustivo.',M+25,y+19);
+  y+=boxH+8;
+
+  /* ---------- nota ---------- */
+  const notaTxt='Valor referencial. El precio final puede variar si la motocicleta requiere trabajos o repuestos adicionales, lo que se informará antes de realizarlos.';
+  const notaLines=doc.splitTextToSize(notaTxt, W-M*2-26);
+  const notaH=8+notaLines.length*4.2+7;
+  doc.setDrawColor(225); doc.setLineWidth(0.3); doc.setFillColor(255,255,255);
+  doc.roundedRect(M,y,W-M*2,notaH,3,3,'FD');
+  doc.setFillColor(...NEGRO); doc.circle(M+11,y+10,4.5,'F');
+  doc.setFont('helvetica','bolditalic'); doc.setFontSize(8); doc.setTextColor(255,255,255);
+  doc.text('i',M+11,y+12,{align:'center'});
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...VERDE_TXT);
+  doc.text('NOTA',M+21,y+8);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(100);
+  doc.text(notaLines,M+21,y+13);
+  doc.setFont('helvetica','bold'); doc.setTextColor(...NEGRO);
+  doc.text('Cotización válida por 15 días.',M+21,y+13+notaLines.length*4.2+4);
+  y+=notaH+9;
+
+  /* ---------- horario ---------- */
+  const horarioParts=(CONFIG.taller.horario||'').split('·').map(s=>s.trim()).filter(Boolean);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...NEGRO);
+  doc.text('HORARIO DE ATENCIÓN',M,y);
+  doc.setDrawColor(...VERDE); doc.setLineWidth(0.8); doc.line(M,y+1.5,M+34,y+1.5);
+  if (horarioParts.length>=2){
+    let hx=M+52;
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...NEGRO);
+    doc.text(horarioParts[0].toUpperCase(),hx,y-2);
+    doc.setFont('helvetica','normal'); doc.setTextColor(120);
+    doc.text(horarioParts[1],hx,y+3);
+    if (horarioParts.length>=4){
+      hx+=58;
+      doc.setFont('helvetica','bold'); doc.setTextColor(...NEGRO);
+      doc.text(horarioParts[2].toUpperCase(),hx,y-2);
+      doc.setFont('helvetica','normal'); doc.setTextColor(120);
+      doc.text(horarioParts[3],hx,y+3);
+    }
+  }
+  y+=15;
+
+  /* ---------- footer ---------- */
+  const footH=26;
+  doc.setFillColor(...VERDE); doc.rect(0,y,W,1.2,'F');
+  doc.setFillColor(...NEGRO); doc.rect(0,y+1.2,W,footH,'F');
+  const items=[
+    {t1:'SERVICIO PREMIUM,',t2:'RESULTADOS QUE MARCAN LA DIFERENCIA.'},
+    {t1:'EXPERIENCIA',t2:'Y CONFIANZA'},
+    {t1:'REPUESTOS',t2:'DE CALIDAD'},
+    {t1:'GARANTÍA',t2:'EN NUESTRO TRABAJO'}
+  ];
+  const colW=W/4;
+  items.forEach((it,idx)=>{
+    const cx=colW*idx+colW/2, iy=y+1.2+7;
+    doc.setDrawColor(...VERDE); doc.setLineWidth(0.7);
+    doc.circle(cx,iy,3.4);
+    doc.line(cx-1.6,iy,cx-0.3,iy+1.4); doc.line(cx-0.3,iy+1.4,cx+2,iy-1.8);
+    doc.setFont('helvetica','bold'); doc.setFontSize(idx===0?7.6:7.2); doc.setTextColor(255,255,255);
+    doc.text(it.t1,cx,iy+7,{align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.4); doc.setTextColor(195,195,195);
+    const t2lines=doc.splitTextToSize(it.t2,colW-6);
+    doc.text(t2lines,cx,iy+11,{align:'center'});
+  });
 
   doc.save(`Cotizacion_PremiumMotorbikes_${marca}_${modelo}.pdf`.replace(/\s+/g,'_'));
 }
