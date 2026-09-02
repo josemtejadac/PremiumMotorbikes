@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>SpotGo · Panel</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0b0d10;color:#e8eaed;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#151a20;border-radius:16px;padding:32px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.logo{text-align:center;margin-bottom:24px}
+.logo b{color:#b3fc06;font-size:20px;font-weight:800}
+.logo small{display:block;color:#59636f;font-size:11px;margin-top:2px}
+.campo{width:100%;padding:12px;border-radius:10px;border:1px solid #3a424c;background:#1d232b;color:#e8eaed;font-size:14px;margin-bottom:10px;text-align:center;letter-spacing:2px}
+.entrar{width:100%;padding:12px;border-radius:10px;background:#b3fc06;color:#0b0d10;font-weight:700;font-size:14px;border:none;cursor:pointer}
+.entrar:disabled{opacity:.5}
+.err{color:#dc2626;font-size:13px;text-align:center;margin-bottom:10px;display:none}
+.sitename{text-align:center;padding:14px;background:#1d232b;border-radius:10px;margin-bottom:20px;font-weight:700;font-size:14px;color:#98a1b1}
+.sitename span{color:#b3fc06}
+.estado{display:flex;align-items:center;gap:14px;padding:18px;border-radius:12px;margin-bottom:20px}
+.estado.on{background:#1a2e0a;border:1px solid #3d6b1a}
+.estado.off{background:#2e0a0a;border:1px solid #6b1a1a}
+.estado .dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.estado.on .dot{background:#b3fc06;box-shadow:0 0 10px #b3fc06}
+.estado.off .dot{background:#dc2626;box-shadow:0 0 10px #dc2626}
+.estado .txt{font-size:15px;font-weight:700}
+.estado .txt small{display:block;font-weight:400;font-size:12px;color:#98a1b1;margin-top:2px}
+.toggle{width:100%;padding:14px;border-radius:10px;font-size:15px;font-weight:700;border:none;cursor:pointer;transition:.2s}
+.toggle.activar{background:#b3fc06;color:#0b0d10}
+.toggle.desactivar{background:#dc2626;color:#fff}
+.toggle:disabled{opacity:.5;cursor:wait}
+.nota{text-align:center;margin-top:16px;font-size:12px;color:#59636f}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><b>SpotGo</b><small>Tecnología SpA</small></div>
+
+  <div id="loginBox">
+    <input id="pClave" class="campo" type="password" placeholder="Clave de acceso" autofocus>
+    <div id="pErr" class="err"></div>
+    <button id="pEntrar" class="entrar">Entrar</button>
+  </div>
+
+  <div id="panelBox" style="display:none">
+    <div class="sitename">🏍️ <span>Premium Motorbikes</span></div>
+    <div class="estado" id="estadoBox">
+      <div class="dot"></div>
+      <div class="txt">Cargando…<small>Verificando estado</small></div>
+    </div>
+    <button class="toggle" id="toggleBtn" disabled>Cargando…</button>
+    <p class="nota">Al desactivar, los visitantes ven "en construcción" con la marca SpotGo.</p>
+  </div>
+</div>
+
+<script>
+const API = 'https://wiuuzsiiaagqldtxfouj.supabase.co/rest/v1';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpdXV6c2lpYWFncWxkdHhmb3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MjI1NDcsImV4cCI6MjA5NzI5ODU0N30.hPNrXFz9GIBDMAKMZ3Ao22cVsFoyQO1Ne7eYvHhEF7U';
+const H = { 'apikey': KEY, 'Content-Type': 'application/json' };
+const $ = s => document.querySelector(s);
+
+let clave = '';
+let siteActiva = true;
+
+$('#pClave').addEventListener('keydown', e => { if (e.key === 'Enter') $('#pEntrar').click(); });
+
+$('#pEntrar').onclick = async () => {
+  clave = $('#pClave').value.trim();
+  const err = $('#pErr');
+  err.style.display = 'none';
+  if (!clave) { err.textContent = 'Ingresa la clave'; err.style.display = 'block'; return; }
+
+  // Probar la clave haciendo un toggle "neutro" (poner el mismo estado actual)
+  try {
+    const r = await fetch(API + '/rpc/pm_toggle_mantenimiento', {
+      method: 'POST', headers: H,
+      body: JSON.stringify({ clave: clave, activar: true })
+    });
+    if (!r.ok) {
+      const d = await r.json();
+      err.textContent = 'Clave incorrecta';
+      err.style.display = 'block';
+      return;
+    }
+  } catch(e) {
+    err.textContent = 'Error de conexión'; err.style.display = 'block'; return;
+  }
+
+  $('#loginBox').style.display = 'none';
+  $('#panelBox').style.display = 'block';
+  await cargarEstado();
+};
+
+async function cargarEstado() {
+  const r = await fetch(API + '/premium_config?key=eq.mantenimiento&select=value', { headers: { 'apikey': KEY } });
+  const d = await r.json();
+  siteActiva = !(d && d[0] && d[0].value === true);
+  renderEstado();
+}
+
+function renderEstado() {
+  const box = $('#estadoBox');
+  const btn = $('#toggleBtn');
+  if (siteActiva) {
+    box.className = 'estado on';
+    box.querySelector('.txt').innerHTML = 'Página ACTIVA<small>Los visitantes ven la web completa</small>';
+    btn.className = 'toggle desactivar';
+    btn.textContent = '⏸ Desactivar página';
+  } else {
+    box.className = 'estado off';
+    box.querySelector('.txt').innerHTML = 'Página DESACTIVADA<small>Los visitantes ven "en construcción"</small>';
+    btn.className = 'toggle activar';
+    btn.textContent = '▶ Activar página';
+  }
+  btn.disabled = false;
+}
+
+$('#toggleBtn').onclick = async () => {
+  const btn = $('#toggleBtn');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  const nuevaActiva = !siteActiva;
+
+  const r = await fetch(API + '/rpc/pm_toggle_mantenimiento', {
+    method: 'POST', headers: H,
+    body: JSON.stringify({ clave: clave, activar: nuevaActiva })
+  });
+
+  if (r.ok) {
+    siteActiva = nuevaActiva;
+    renderEstado();
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Error — reintentar';
+  }
+};
+</script>
+</body>
+</html>

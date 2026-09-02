@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://premiummotorbikes.pages.dev/sitemap.xml
