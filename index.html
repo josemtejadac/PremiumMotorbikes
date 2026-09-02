@@ -1552,18 +1552,18 @@ let CATS = { neumaticos:'Neumáticos', aceites:'Aceites', repuestos:'Repuestos' 
 let IP_CATS = Object.entries(CATS).map(([k,v])=>[k,v]);
 
 /* ---------- COMPRESIÓN DE FOTOS AL SUBIR ---------- */
-const IMG_MAX = 900;   // px lado mayor
-const IMG_QUAL = 0.45;  // calidad JPEG (0-1)
+const IMG_MAX = 800;   // px lado mayor
+const IMG_QUAL = 0.4;  // calidad JPEG (0-1)
 function comprimirImagen(file){
   return new Promise((resolve)=>{
     // si no es imagen o es muy pequeña, devolver tal cual
-    if (!file.type.startsWith('image/') || file.size < 80000){ resolve(file); return; }
+    if (!file.type.startsWith('image/') || file.size < 60000){ resolve(file); return; }
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = ()=>{
       URL.revokeObjectURL(url);
       let w=img.width, h=img.height;
-      if (w<=IMG_MAX && h<=IMG_MAX && file.size<300000){ resolve(file); return; }
+      if (w<=IMG_MAX && h<=IMG_MAX && file.size<120000){ resolve(file); return; }
       const scale = Math.min(IMG_MAX/w, IMG_MAX/h, 1);
       w = Math.round(w*scale); h = Math.round(h*scale);
       const c = document.createElement('canvas'); c.width=w; c.height=h;
