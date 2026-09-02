@@ -2514,24 +2514,35 @@ async function loadImg(url){
 }
 async function generarPDF(s){
   const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'});
-  const W=210, M=14; let y=14;
+  const W=210, M=14, RX=W-M;
+  const NEGRO=[13,15,19], VERDE=[179,252,6], VERDE_TXT=[77,124,15], GRIS_CLARO=[245,246,248];
   // encabezado
   const logo=await loadImg('./logo.png');
-  if (logo){ try{ doc.addImage(logo,'PNG',M,y,22,22); }catch(e){} }
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(90);
-  doc.text(CONFIG.taller.nombre.toUpperCase(),W-M,y+6,{align:'right'});
-  doc.setFont('helvetica','normal'); doc.setTextColor(120);
-  doc.text(CONFIG.taller.subtitulo,W-M,y+11,{align:'right'});
-  doc.text('Tel: '+CONFIG.taller.telefono,W-M,y+16,{align:'right'});
-  if (CONFIG.taller.direccion) doc.text(CONFIG.taller.direccion,W-M,y+21,{align:'right'});
-  y+=30;
-  doc.setDrawColor(13,15,19); doc.setLineWidth(1); doc.line(M,y,W-M,y); y+=8;
+  const HH=38;
+  doc.setFillColor(...NEGRO); doc.rect(0,0,W,HH,'F');
+  doc.setFillColor(...VERDE); doc.rect(0,HH,W,1.6,'F');
+  if (logo){ try{ doc.addImage(logo,'PNG',M,6,24,24); }catch(e){} }
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255);
+  doc.text(CONFIG.taller.nombre.toUpperCase(),RX,12,{align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(200,200,200);
+  doc.text(CONFIG.taller.subtitulo,RX,17,{align:'right'});
+  doc.setFontSize(8);
+  let hry=23.5;
+  [CONFIG.taller.telefono, CONFIG.taller.direccion].forEach(t=>{
+    if (!t) return;
+    const tw=doc.getTextWidth(t);
+    doc.setFillColor(...VERDE); doc.circle(RX-tw-3.5,hry-1.1,0.9,'F');
+    doc.setTextColor(215,215,215); doc.text(t,RX,hry,{align:'right'}); hry+=4.4;
+  });
+  let y=HH+1.6+9;
 
   // título + folio + estado
-  doc.setTextColor(20); doc.setFont('helvetica','bold'); doc.setFontSize(15);
-  doc.text('PLANILLA DE SERVICIO TÉCNICO',M,y);
-  doc.setFontSize(10); doc.setTextColor(77,124,15);
-  doc.text(s.folio,W-M,y,{align:'right'}); y+=6;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...NEGRO);
+  doc.text('PLANILLA ',M,y);
+  const wPl=doc.getTextWidth('PLANILLA ');
+  doc.setTextColor(...VERDE_TXT); doc.text('DE SERVICIO TÉCNICO',M+wPl,y);
+  doc.setFontSize(10); doc.setTextColor(...NEGRO); doc.setFont('helvetica','bold');
+  doc.text(s.folio,RX,y,{align:'right'}); y+=6;
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
   doc.text('Estado: '+estadoLabel(s.estado)+
     ((s.estado==='en_pausa'&&s.estado_motivo)?(' ('+s.estado_motivo+')'):'')+
@@ -2541,11 +2552,12 @@ async function generarPDF(s){
 
   // datos moto + cliente (dos columnas)
   const box=(x,w,titulo,rows)=>{
-    doc.setFillColor(245,246,248); doc.roundedRect(x,y,w,26,2,2,'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(77,124,15);
-    doc.text(titulo,x+4,y+6);
+    doc.setFillColor(...GRIS_CLARO); doc.roundedRect(x,y,w,26,2,2,'F');
+    doc.setFillColor(...VERDE); doc.roundedRect(x,y,3,26,2,2,'F'); doc.rect(x+1.5,y,1.5,26,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...VERDE_TXT);
+    doc.text(titulo,x+7,y+6);
     doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(40);
-    rows.forEach((r,i)=>doc.text(r,x+4,y+12+i*5));
+    rows.forEach((r,i)=>doc.text(r,x+7,y+12+i*5));
   };
   const colW=(W-M*2-6)/2;
   box(M,colW,'MOTO',[
@@ -2559,9 +2571,9 @@ async function generarPDF(s){
   y+=32;
 
   // tabla de items
-  doc.setFillColor(22,24,28); doc.rect(M,y,W-M*2,8,'F');
+  doc.setFillColor(...NEGRO); doc.rect(M,y,W-M*2,8,'F');
   doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  doc.text('DETALLE',M+3,y+5.5); doc.text('PRECIO',W-M-3,y+5.5,{align:'right'}); y+=8;
+  doc.text('DETALLE',M+3,y+5.5); doc.text('PRECIO',RX-3,y+5.5,{align:'right'}); y+=8;
   doc.setFont('helvetica','normal'); doc.setTextColor(30);
   (s.items||[]).forEach((it,i)=>{
     if (y>250){ doc.addPage(); y=20; }
@@ -2571,25 +2583,28 @@ async function generarPDF(s){
     const desc=(it.descripcion||'—')+(cant>1?`  (x${cant})`:'')+(idesc>0?`  -${idesc}%`:'');
     const d=doc.splitTextToSize(desc,W-M*2-40);
     doc.text(d[0],M+3,y+5);
-    doc.text(money(itemNeto(it)),W-M-3,y+5,{align:'right'}); y+=7;
+    doc.text(money(itemNeto(it)),RX-3,y+5,{align:'right'}); y+=7;
   });
   // total
-  doc.setDrawColor(200); doc.line(M,y,W-M,y); y+=2;
+  doc.setDrawColor(210); doc.setLineWidth(0.2); doc.line(M,y,RX,y); y+=2;
   const _desc = Number(s.descuento)||0;
   if (_desc>0){
     const _sub = subtotalItems(s);
     doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90);
-    doc.text('Subtotal',W-M-70,y+5); doc.text(money(_sub),W-M-3,y+5,{align:'right'});
-    doc.setTextColor(77,124,15);
-    doc.text('Descuento '+_desc+'%',W-M-70,y+10); doc.text('- '+money(_sub-(Number(s.total)||0)),W-M-3,y+10,{align:'right'});
+    doc.text('Subtotal',RX-70,y+5); doc.text(money(_sub),RX-3,y+5,{align:'right'});
+    doc.setTextColor(...VERDE_TXT);
+    doc.text('Descuento '+_desc+'%',RX-70,y+10); doc.text('- '+money(_sub-(Number(s.total)||0)),RX-3,y+10,{align:'right'});
     y+=12;
   }
-  doc.setFillColor(13,15,19); doc.roundedRect(W-M-70,y,70,11,2,2,'F');
-  doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(11);
-  doc.text('TOTAL',W-M-66,y+7.3); doc.text(money(s.total),W-M-3,y+7.3,{align:'right'});
-  if (s.plan_nombre && s.mostrar_nota_insumos !== false){ doc.setTextColor(120); doc.setFont('helvetica','italic'); doc.setFontSize(8);
-    doc.text('* Los planes no incluyen insumos.', M, y+7.3); }
-  y+=16;
+  const totH=11, splitX=M+(W-M*2)*0.62;
+  doc.setFillColor(...NEGRO); doc.rect(M,y,splitX-M,totH,'F');
+  doc.setFillColor(...VERDE); doc.rect(splitX,y,RX-splitX,totH,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.setTextColor(255,255,255); doc.text('TOTAL',M+5,y+totH/2,{baseline:'middle'});
+  doc.setTextColor(...NEGRO); doc.text(money(s.total),RX-4,y+totH/2,{align:'right',baseline:'middle'});
+  if (s.plan_nombre && s.mostrar_nota_insumos !== false){ doc.setTextColor(150); doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+    doc.text('* Los planes no incluyen insumos.', M, y+totH+4); }
+  y+=totH+10;
 
   // incluye (checklist del plan)
   if (s.checklist && s.checklist.length){
@@ -2627,6 +2642,7 @@ async function generarPDF(s){
     if (s.fecha_entregado){ doc.text('Fecha de retiro: '+fmtFecha(s.fecha_entregado), M, ry); }
   }
   // pie
+  doc.setDrawColor(179,252,6); doc.setLineWidth(0.6); doc.line(M,286,W-M,286);
   doc.setTextColor(150); doc.setFontSize(7);
   doc.text(CONFIG.taller.nombre+' · '+CONFIG.taller.telefono+' · '+CONFIG.taller.instagramUser+' · '+fmtFecha(new Date().toISOString()),M,290);
 
