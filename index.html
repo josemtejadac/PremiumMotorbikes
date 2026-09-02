@@ -602,10 +602,18 @@
   .wsec-t{font-family:Oswald;font-size:26px;text-transform:uppercase;color:var(--tinta);text-align:center;margin:0}
   .wsec-s{text-align:center;color:rgba(255,255,255,.5);font-size:14px;margin:6px 0 24px}
   .wstatic{position:static;border-radius:0}
-  .wcircles{display:flex;flex-wrap:wrap;justify-content:center;gap:28px;margin-bottom:22px}
-  .wcirc{background:transparent;display:flex;flex-direction:column;align-items:center;gap:10px;border:0}
-  .wcirc-i{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,var(--tinta),#2b2f37);display:flex;align-items:center;justify-content:center;font-size:42px;box-shadow:0 8px 22px rgba(0,0,0,.25);border:3px solid var(--lima)}
-  .wcirc b{font-family:Oswald;font-size:14px;text-transform:uppercase;color:var(--tinta);letter-spacing:.5px}
+  .wcircles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:26px}
+  .wcirc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:26px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;cursor:pointer}
+  .wcirc-i{width:56px;height:56px;border-radius:14px;background:rgba(179,252,6,.08);display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid rgba(179,252,6,.25)}
+  .wcirc b{font-family:Oswald;font-size:14px;text-transform:uppercase;color:#fff;letter-spacing:.5px}
+  .wcirc small{color:rgba(255,255,255,.55);font-size:12.5px;line-height:1.4}
+  .wbadge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 12px;border-radius:999px;background:rgba(179,252,6,.08);border:1px solid rgba(179,252,6,.3);color:var(--lima);font-family:Oswald;font-size:12px;letter-spacing:1px;text-transform:uppercase}
+  .wbadge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--lima);flex-shrink:0}
+  .wbtn-outline{background:transparent;border:1.5px solid var(--lima);color:var(--lima)}
+  .wbtn-outline:hover{background:rgba(179,252,6,.1)}
+  .wtienda-banner{max-width:1000px;margin:0 auto 38px;border-radius:20px;overflow:hidden;position:relative;min-height:320px;background-size:cover;background-position:center;border:1px solid rgba(179,252,6,.25)}
+  .wtienda-banner-logo{position:absolute;top:20px;left:20px;height:64px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.6))}
+  @media(max-width:640px){.wtienda-banner{margin-left:14px;margin-right:14px;min-height:200px}}
   .wabout{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center}
   .wabout-img{min-height:320px;border-radius:16px;background-size:cover;background-position:center;box-shadow:var(--sombra)}
   .wabout-txt p{color:var(--gris5);font-size:14.5px;line-height:1.6;margin:0 0 12px}
@@ -1230,12 +1238,17 @@
   </section>
 
   <!-- CATEGORÍAS / TIENDA -->
-  <section class="wsec">
-    <h2 class="wsec-t" style="color:#fff!important;font-size:28px">Nuestra tienda</h2>
-    <p class="wsec-s">Todo para tu motocicleta, en un solo lugar.</p>
+  <section class="wsec" style="text-align:center">
+    <span class="wbadge">Nuestra tienda</span>
+    <h2 class="wsec-t" style="color:#fff!important;font-size:30px;line-height:1.15;margin-top:14px">Todo para tu moto<br>en un solo lugar</h2>
+    <p class="wsec-s">Repuestos, lubricantes y neumáticos de las mejores marcas, al mejor precio.</p>
     <div class="wcircles"></div>
-    <div style="text-align:center;margin-top:10px"><a class="wbtn" data-go="tienda">Ver tienda completa</a></div>
+    <div style="text-align:center;margin-top:6px"><a class="wbtn wbtn-outline" data-go="tienda">🛍️ Ver tienda completa <span class="wharr">→</span></a></div>
   </section>
+
+  <div class="wtienda-banner" style="background-image:url('./fotos/taller4.jpg')">
+    <img src="./logo.png" alt="Premium Motorbikes" class="wtienda-banner-logo">
+  </div>
 
   <!-- SOBRE NOSOTROS -->
   <section class="wsec" style="padding:0;max-width:100%">
@@ -2854,6 +2867,8 @@ let carrito = {};   // { id: cantidad }
 
 const CAT_ICONOS = {neumaticos:'🛞',aceites:'🛢️',repuestos:'🔧',accesorios:'🧤',kit:'⚙️',filtros:'🔲',frenos:'🛑',baterias:'🔋',lubricantes:'💧'};
 function catIcono(id){ return CAT_ICONOS[id] || '📦'; }
+const CAT_DESC = {neumaticos:'Agarre, seguridad y durabilidad',aceites:'Máxima protección para tu motor',repuestos:'Calidad y rendimiento garantizado',accesorios:'Todo lo que tu moto necesita',kit:'Todo en un solo pack',filtros:'Filtración de calidad OEM',frenos:'Seguridad en cada frenada',baterias:'Arranque confiable siempre',lubricantes:'Cuidado premium para tu motor'};
+function catDesc(id){ return CAT_DESC[id] || 'Calidad garantizada para tu moto'; }
 
 async function cargarCategorias(){
   try{
@@ -2895,7 +2910,7 @@ function renderCatChipsInsumos(){
 function renderCatLanding(){
   const el=document.querySelector('.wcircles'); if(!el) return;
   el.innerHTML = Object.entries(CATS).map(([k,v])=>
-    `<button class="wcirc" data-cat="${k}"><span class="wcirc-i">${catIcono(k)}</span><b>${esc(v)}</b></button>`
+    `<button class="wcirc" data-cat="${k}"><span class="wcirc-i">${catIcono(k)}</span><b>${esc(v)}</b><small>${esc(catDesc(k))}</small></button>`
   ).join('');
   el.querySelectorAll('.wcirc').forEach(b=>b.onclick=()=>irCat(b.dataset.cat));
 }
