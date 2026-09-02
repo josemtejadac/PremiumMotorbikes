@@ -611,9 +611,10 @@
   .wbadge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--lima);flex-shrink:0}
   .wbtn-outline{background:transparent;border:1.5px solid var(--lima);color:var(--lima)}
   .wbtn-outline:hover{background:rgba(179,252,6,.1)}
-  .wtienda-banner{max-width:1000px;margin:0 auto 38px;border-radius:20px;overflow:hidden;position:relative;min-height:320px;background-size:cover;background-position:center;border:1px solid rgba(179,252,6,.25)}
+  .wtienda-banner{max-width:1000px;width:100%;margin:0 auto 38px;border-radius:20px;overflow:hidden;position:relative;border:1px solid rgba(179,252,6,.25)}
+  .wtienda-banner-img{display:block;width:100%;height:320px;object-fit:cover}
   .wtienda-banner-logo{position:absolute;top:20px;left:20px;height:64px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.6))}
-  @media(max-width:640px){.wtienda-banner{margin-left:14px;margin-right:14px;min-height:200px}}
+  @media(max-width:640px){.wtienda-banner{width:calc(100% - 28px)}.wtienda-banner-img{height:200px}}
   .wabout{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center}
   .wabout-img{min-height:320px;border-radius:16px;background-size:cover;background-position:center;box-shadow:var(--sombra)}
   .wabout-txt p{color:var(--gris5);font-size:14.5px;line-height:1.6;margin:0 0 12px}
@@ -1240,13 +1241,14 @@
   <!-- CATEGORÍAS / TIENDA -->
   <section class="wsec" style="text-align:center">
     <span class="wbadge">Nuestra tienda</span>
-    <h2 class="wsec-t" style="color:#fff!important;font-size:30px;line-height:1.15;margin-top:14px">Todo para tu moto<br>en un solo lugar</h2>
+    <h2 class="wsec-t" style="color:#fff!important;font-size:30px;line-height:1.15;margin-top:14px">Todo para tu motocicleta<br>en un solo lugar</h2>
     <p class="wsec-s">Repuestos, lubricantes y neumáticos de las mejores marcas, al mejor precio.</p>
     <div class="wcircles"></div>
     <div style="text-align:center;margin-top:6px"><a class="wbtn wbtn-outline" data-go="tienda">🛍️ Ver tienda completa <span class="wharr">→</span></a></div>
   </section>
 
-  <div class="wtienda-banner" style="background-image:url('./fotos/taller4.jpg')">
+  <div class="wtienda-banner">
+    <img src="./fotos/taller4.jpg" alt="Taller Premium Motorbikes" class="wtienda-banner-img">
     <img src="./logo.png" alt="Premium Motorbikes" class="wtienda-banner-logo">
   </div>
 
