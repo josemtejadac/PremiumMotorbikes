@@ -3559,9 +3559,10 @@ function renderServiciosCot(){
   const arr = productos.filter(p=>p.categoria==='servicios' && p.activo);
   const G = $('#cServicios');
   if (!arr.length){
-    G.innerHTML = `<div class="empty" style="grid-column:1/-1">
-      <p>Aún no hay servicios cargados. Escríbenos por WhatsApp para cotizar el tuyo.</p>
-      <a class="btn-wa" style="display:inline-flex;margin-top:10px;padding:12px 20px" href="https://wa.me/56953209886?text=Hola%2C%20quisiera%20cotizar%20un%20servicio%20espec%C3%ADfico%20para%20mi%20motocicleta" target="_blank" rel="noopener">🟢 Escribir por WhatsApp</a>
+    G.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 20px;background:var(--panel);border:1px solid var(--gris2);border-radius:16px">
+      <div style="font-size:32px;margin-bottom:10px">🛠️</div>
+      <p style="color:var(--gris5);margin:0 0 18px">Aún no hay servicios cargados.<br>Escríbenos por WhatsApp para cotizar el tuyo.</p>
+      <a href="https://wa.me/56953209886?text=Hola%2C%20quisiera%20cotizar%20un%20servicio%20espec%C3%ADfico%20para%20mi%20motocicleta" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;text-decoration:none;font-weight:700;padding:13px 24px;border-radius:999px;font-size:14.5px">🟢 Escribir por WhatsApp</a>
     </div>`;
     return;
   }
