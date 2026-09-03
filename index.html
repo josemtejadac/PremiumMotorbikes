@@ -760,11 +760,8 @@
     <!-- elección -->
     <div id="loginChoice">
       <button class="lbtn lbtn-cotiza" id="chooseCotiza">
-        <span class="lbi">🧮</span><span class="lbt">Cotiza tu mantención<small>Calcula el precio de tu servicio</small></span><span class="lba">›</span>
+        <span class="lbi">📅</span><span class="lbt">Cotiza y agenda tu servicio<small>Mantención completa o un servicio puntual</small></span><span class="lba">›</span>
       </button>
-      <a class="lbtn lbtn-cotiza-esp" id="chooseCotizaEspecifico" href="https://wa.me/56953209886?text=Hola%2C%20quisiera%20cotizar%20un%20servicio%20espec%C3%ADfico%20para%20mi%20motocicleta" target="_blank" rel="noopener">
-        <span class="lbi">🛠️</span><span class="lbt">Cotiza tu servicio específico<small>Escríbenos directo por WhatsApp</small></span><span class="lba">›</span>
-      </a>
       <button class="lbtn lbtn-tienda" id="chooseTienda">
         <span class="lbi">🛒</span><span class="lbt">Tienda Premium Motorbikes<small>Neumáticos, aceites y repuestos</small></span><span class="lba">›</span>
       </button>
@@ -834,6 +831,7 @@
         <button class="chip" data-f="lista_retiro">Lista para retiro</button>
         <button class="chip" data-f="entregado">Entregados</button>
       </div>
+      <button class="btnprecios" id="agendaBtn" style="position:relative">📅 Agenda<span id="agendaBadge" class="hidden" style="position:absolute;top:-8px;right:-8px;background:var(--rojo);color:#fff;font-size:11px;font-weight:700;min-width:18px;height:18px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 4px">0</span></button>
       <button class="btnprecios hidden" id="preciosBtn">💲 Editar precios</button>
       <button class="btnprecios hidden" id="equipoBtn">👥 Equipo</button>
       <button class="btnprecios hidden" id="motosBtn">🏍️ Motos</button>
@@ -1137,6 +1135,7 @@
       <div class="paso" data-p="2"><b>2</b> Plan</div>
       <div class="paso" data-p="3"><b>3</b> Insumos</div>
       <div class="paso" data-p="4"><b>4</b> Total</div>
+      <div class="paso" data-p="5"><b>5</b> Agenda</div>
     </div>
   </header>
 
@@ -1172,11 +1171,23 @@
 
     <!-- paso 2: plan -->
     <section class="cpaso hidden" id="cP2">
-      <h3 class="ctit">Elige tu plan de mantención</h3>
+      <h3 class="ctit">¿Qué necesitas?</h3>
       <p class="csub" id="cMotoResumen"></p>
-      <div class="planes" id="cPlanes"></div>
-      <div class="plancheck hidden" id="cPlanCheck">
-        <h4>Incluye</h4><ul id="cPlanLista"></ul>
+      <div class="segbtns" id="cTipoServ" style="margin-bottom:18px">
+        <div class="seg on" data-t="mantencion">Mantención completa</div>
+        <div class="seg" data-t="servicio">Servicio específico</div>
+      </div>
+      <div id="cPlanBox">
+        <h4 class="ctit" style="font-size:16px;margin-top:0">Elige tu plan de mantención</h4>
+        <div class="planes" id="cPlanes"></div>
+        <div class="plancheck hidden" id="cPlanCheck">
+          <h4>Incluye</h4><ul id="cPlanLista"></ul>
+        </div>
+      </div>
+      <div id="cServBox" class="hidden">
+        <h4 class="ctit" style="font-size:16px;margin-top:0">Elige el servicio que necesitas</h4>
+        <p class="csub" style="margin-top:-4px">Si no encuentras lo que buscas, escríbenos por WhatsApp.</p>
+        <div class="tgrid" id="cServicios"></div>
       </div>
     </section>
 
@@ -1206,9 +1217,44 @@
       <h3 class="ctit">Tu cotización</h3>
       <div class="block" id="cResumen"></div>
       <p class="cref">⚠️ Valor referencial. El precio final puede variar si la motocicleta requiere trabajos o repuestos adicionales, lo que se te informará antes de realizarlos.</p>
-      <button class="btn-wa" id="cEnviar" style="width:100%;padding:15px;font-size:15px">🟢 Enviar cotización por WhatsApp</button>
+      <button class="btn-save" id="cIrAgendar" style="width:100%;padding:15px;font-size:15px;background:var(--lima);color:#0b0d10">📅 Agendar esta hora</button>
+      <button class="btn-wa" id="cEnviar" style="width:100%;margin-top:10px;padding:15px;font-size:15px">🟢 Enviar cotización por WhatsApp</button>
       <button class="btn-pdf" id="cPdf" style="width:100%;margin-top:10px;padding:13px">📄 Descargar cotización en PDF</button>
       <button class="btn-ghost" id="cReiniciar" style="width:100%;margin-top:10px;padding:12px">Cotizar otra moto</button>
+    </section>
+
+    <!-- paso 5: agendar -->
+    <section class="cpaso hidden" id="cP5">
+      <div id="cAgendaForm">
+        <h3 class="ctit">Agenda tu hora</h3>
+        <p class="csub">Elige el día y la hora que más te acomode.</p>
+        <label>Fecha</label>
+        <input type="date" id="cFecha" />
+        <label style="margin-top:14px">Hora</label>
+        <div class="segbtns" id="cHoras"><p class="csub" style="margin:0">Elige primero una fecha.</p></div>
+
+        <div class="row c2" style="margin-top:18px">
+          <div><label>Nombre completo</label><input id="cAgNombre" placeholder="Ej: Juan Pérez"></div>
+          <div><label>RUT</label><input id="cAgRut" placeholder="Ej: 12345678-9"></div>
+        </div>
+        <div class="row c2" style="margin-top:14px">
+          <div><label>Correo</label><input id="cAgCorreo" type="email" placeholder="tucorreo@ejemplo.com"></div>
+          <div><label>Teléfono</label><input id="cAgTelefono" placeholder="+56 9…"></div>
+        </div>
+        <label style="margin-top:14px">Patente de tu motocicleta</label>
+        <input id="cAgPatente" placeholder="Ej: ABCD12" autocapitalize="characters">
+
+        <button class="btn-save" id="cConfirmarCita" style="width:100%;margin-top:20px;padding:15px;font-size:15px">Confirmar hora</button>
+      </div>
+
+      <div id="cAgendaOk" class="hidden">
+        <h3 class="ctit">¡Hora agendada! 🎉</h3>
+        <div class="block" id="cAgendaResumen"></div>
+        <p class="csub" id="cAgendaFolio"></p>
+        <button class="btn-wa" id="cAgendaWa" style="width:100%;padding:15px;font-size:15px">🟢 Enviar por WhatsApp</button>
+        <button class="btn-pdf" id="cAgendaPdf" style="width:100%;margin-top:10px;padding:13px">📄 Descargar PDF</button>
+        <button class="btn-ghost" id="cAgendaNueva" style="width:100%;margin-top:10px;padding:12px">Agendar otra hora</button>
+      </div>
     </section>
   </div>
 
@@ -1242,7 +1288,7 @@
       <h1>Tu motocicleta, al nivel que se merece</h1>
       <p>Mantención con protocolo, torque según fabricante y revisión profesional en cada servicio.</p>
       <div class="whero-btns">
-        <a class="whbtn whbtn-cotiza" data-go="cotiza"><span>🏍️ Cotiza tu mantención</span><span class="wharr">→</span></a>
+        <a class="whbtn whbtn-cotiza" data-go="cotiza"><span>🏍️ Cotiza y agenda tu servicio</span><span class="wharr">→</span></a>
         <a class="whbtn whbtn-tienda" data-go="tienda"><span>🛒 Ver la tienda</span><span class="wharr">→</span></a>
         <a class="whbtn whbtn-wa" href="https://wa.me/56953209886" target="_blank" rel="noopener"><span>🟢 WhatsApp</span><span class="wharr">→</span></a>
       </div>
@@ -1353,6 +1399,18 @@
     <div class="modalact">
       <button class="btn-ghost" id="preciosCancel">Cancelar</button>
       <button class="btn-save" id="preciosSave" style="flex:0 0 auto;padding:12px 20px">Guardar precios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AGENDA DE HORAS -->
+<div id="agendaModal" class="modalov">
+  <div class="modalbox" style="max-width:560px">
+    <h3>📅 Agenda de horas</h3>
+    <p class="modalsub">Citas agendadas por clientes desde el cotizador. Cualquiera puede tomar una.</p>
+    <div id="agendaLista" style="margin:14px 0;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>
+    <div class="modalact">
+      <button class="btn-ghost" id="agendaCerrar" style="width:100%">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1708,6 +1766,7 @@ async function openApp(){
     const mb=$('#motosBtn'); if(mb) mb.classList.add('hidden');
   }
   loadServicios();
+  loadAgendaBadge();
 }
 
 async function logout(){
@@ -1797,6 +1856,63 @@ $('#preciosSave').onclick = async ()=>{
   $('#preciosModal').classList.remove('open');
   toast('Precios actualizados','ok');
 };
+
+/* ===== AGENDA DE HORAS (todos los trabajadores) ===== */
+async function loadAgendaBadge(){
+  try{
+    const { count } = await db.from('premium_citas').select('id',{count:'exact',head:true}).eq('estado','pendiente');
+    const b=$('#agendaBadge');
+    if (count>0){ b.textContent=count; b.classList.remove('hidden'); } else { b.classList.add('hidden'); }
+  }catch(e){}
+}
+function citaFechaLabel(fecha,hora){
+  const d=new Date(fecha+'T00:00:00');
+  return d.toLocaleDateString('es-CL',{weekday:'short',day:'2-digit',month:'short'})+' · '+hora+' hrs';
+}
+async function abrirAgenda(){
+  $('#agendaModal').classList.add('open');
+  $('#agendaLista').innerHTML = '<p class="modalsub">Cargando…</p>';
+  const { data, error } = await db.from('premium_citas')
+    .select('*').neq('estado','cancelada')
+    .order('estado',{ascending:true}).order('fecha',{ascending:true}).order('hora',{ascending:true});
+  if (error){ $('#agendaLista').innerHTML = '<p class="modalsub">Error al cargar la agenda.</p>'; return; }
+  renderAgendaLista(data||[]);
+}
+function renderAgendaLista(citas){
+  const L=$('#agendaLista');
+  if (!citas.length){ L.innerHTML='<p class="modalsub">No hay citas agendadas todavía.</p>'; return; }
+  L.innerHTML = citas.map(c=>{
+    const servicio = c.tipo==='servicio' ? c.plan_nombre : (c.plan_nombre||'Mantención');
+    const tomada = c.estado==='tomada';
+    return `<div class="block" style="margin:0" data-cita="${c.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <b style="font-family:Oswald">${esc(citaFechaLabel(c.fecha,c.hora))}</b>
+        <span style="font-size:11px;color:var(--gris5)">${esc(c.folio)}</span>
+      </div>
+      <div style="margin-top:6px;font-size:14px"><b>${esc(c.cliente_nombre)}</b> · ${esc(c.cliente_telefono||'')}</div>
+      <div style="font-size:13px;color:var(--gris5)">${esc([c.moto_marca,c.moto_modelo].filter(Boolean).join(' ')||'—')}${c.moto_patente?' · '+esc(c.moto_patente):''}</div>
+      <div style="font-size:13px;margin-top:2px">Servicio: <b>${esc(servicio||'—')}</b></div>
+      ${tomada
+        ? `<div style="margin-top:10px;font-size:13px;font-weight:700;color:var(--acento-txt)">✅ Tomado por: ${esc(c.tomado_por||'—')}</div>`
+        : `<button class="btn-save" data-tomar="${c.id}" style="width:100%;margin-top:10px;padding:11px">Tomar esta cita</button>`}
+    </div>`;
+  }).join('');
+  L.querySelectorAll('[data-tomar]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true; b.textContent='Tomando…';
+    const { data, error } = await db.from('premium_citas')
+      .update({ estado:'tomada', tomado_por:trabajadorNombre, tomado_por_email:trabajadorEmail, tomado_at:new Date().toISOString() })
+      .eq('id', b.dataset.tomar).eq('estado','pendiente').select();
+    if (error || !data || !data.length){
+      toast('Alguien más ya tomó esta cita','bad');
+    } else {
+      toast('Cita tomada','ok');
+    }
+    abrirAgenda(); loadAgendaBadge();
+  });
+}
+$('#agendaBtn').onclick = ()=> abrirAgenda();
+$('#agendaCerrar').onclick = ()=> $('#agendaModal').classList.remove('open');
+$('#agendaModal').onclick = e=>{ if(e.target.id==='agendaModal') $('#agendaModal').classList.remove('open'); };
 
 /* ===== GESTIÓN DE EQUIPO (solo admin) ===== */
 $('#equipoBtn').onclick = ()=> abrirEquipo();
@@ -3233,7 +3349,9 @@ $('#pEliminar').onclick=async()=>{
 let motosCat = [], cot = null, cPaso = 1, cCatIns = 'aceites';
 
 function cotNueva(){
-  return { marca:null, modelo:null, cc:null, categoria:null, plan:null, insumos:{}, extras:[] };
+  return { marca:null, modelo:null, cc:null, categoria:null, plan:null, insumos:{}, extras:[],
+    tipoServ:'mantencion', servicio:null,
+    agFecha:null, agHora:null, agFolio:null };
 }
 
 $('#chooseCotiza').onclick = abrirCotizador;
@@ -3316,7 +3434,7 @@ $('#cModeloManual') && ($('#cModeloManual').oninput = guardarCot);
 
 function irPaso(n){
   cPaso = n;
-  [1,2,3,4].forEach(i=> $('#cP'+i).classList.toggle('hidden', i!==n));
+  [1,2,3,4,5].forEach(i=> $('#cP'+i).classList.toggle('hidden', i!==n));
   $$('#cPasos .paso').forEach(p=>{
     const i = +p.dataset.p;
     p.classList.toggle('on', i===n);
@@ -3327,6 +3445,7 @@ function irPaso(n){
   $('#cSiguiente').textContent = n===3 ? 'Ver total' : 'Siguiente';
   if (n===3){ renderCotCatChips(); renderInsumos(); renderExtras(); }
   if (n===4) renderResumenCot();
+  if (n===5) iniciarAgenda();
   actualizarTotalCot();
   guardarCot();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -3400,12 +3519,23 @@ function setCilUI(cat){
 $$('#cCils .seg').forEach(b=>b.onclick=()=>{ setCilUI(b.dataset.c); actualizarTotalCot(); });
 
 /* --- paso 2: planes --- */
+$$('#cTipoServ .seg').forEach(b=>b.onclick=()=>{
+  cot.tipoServ = b.dataset.t;
+  $$('#cTipoServ .seg').forEach(x=>x.classList.toggle('on', x===b));
+  $('#cPlanBox').classList.toggle('hidden', cot.tipoServ!=='mantencion');
+  $('#cServBox').classList.toggle('hidden', cot.tipoServ!=='servicio');
+  if (cot.tipoServ==='servicio') renderServiciosCot();
+  actualizarTotalCot();
+});
 function renderPlanesCot(){
   const pr = CONFIG.precios[cot.categoria] || {};
   const marca = cot.marca || $('#cMarcaManual').value.trim();
   const modelo = cot.modelo || $('#cModeloManual').value.trim();
   $('#cMotoResumen').textContent = [marca, modelo].filter(Boolean).join(' ')
     + (cot.cc?` · ${cot.cc} cc`:'') + ` · ${CAT_LABEL[cot.categoria]}`;
+  $$('#cTipoServ .seg').forEach(x=>x.classList.toggle('on', x.dataset.t===cot.tipoServ));
+  $('#cPlanBox').classList.toggle('hidden', cot.tipoServ!=='mantencion');
+  $('#cServBox').classList.toggle('hidden', cot.tipoServ!=='servicio');
   $('#cPlanes').innerHTML = Object.keys(PLAN_META).map(k=>{
     const m = PLAN_META[k], on = cot.plan===k;
     return `<button class="plan ${m.cls} ${on?'on':''}" data-p="${k}">
@@ -3422,6 +3552,27 @@ function renderPlanesCot(){
     $('#cPlanLista').innerHTML = PLAN_ITEMS[cot.plan].map(i=>`<li>${esc(i)}</li>`).join('')
       + (nota?`<li class="km">🗓️ ${esc(nota)}</li>`:'');
   } else $('#cPlanCheck').classList.add('hidden');
+  if (cot.tipoServ==='servicio') renderServiciosCot();
+}
+function renderServiciosCot(){
+  const arr = productos.filter(p=>p.categoria==='servicios' && p.activo);
+  const G = $('#cServicios');
+  if (!arr.length){ G.innerHTML = `<div class="empty" style="grid-column:1/-1"><p>Aún no hay servicios cargados. Escríbenos por WhatsApp para cotizar el tuyo.</p></div>`; return; }
+  G.innerHTML = arr.map(p=>{
+    const on = cot.servicio && cot.servicio.id===p.id;
+    return `<div class="pcard ${on?'on':''}" data-sv="${p.id}" style="cursor:pointer${on?';border-color:var(--lima)':''}">
+      <div class="pbody">
+        ${p.marca?`<div class="pmarca">${esc(p.marca)}</div>`:''}
+        <div class="pnom">${esc(p.nombre)}</div>
+        ${p.descripcion?`<div class="pdesc">${esc(p.descripcion)}</div>`:''}
+        <div class="pprecio">${money(precioFinal(p))}</div>
+      </div></div>`;
+  }).join('');
+  G.querySelectorAll('[data-sv]').forEach(c=>c.onclick=()=>{
+    const p = arr.find(x=>x.id===c.dataset.sv);
+    cot.servicio = { id:p.id, nombre:p.nombre, precio:precioFinal(p) };
+    renderServiciosCot(); actualizarTotalCot();
+  });
 }
 
 /* --- paso 3: insumos --- */
@@ -3472,7 +3623,8 @@ function renderInsumos(){
 /* --- total y resumen --- */
 function totalCot(){
   let t = 0;
-  if (cot.plan) t += (CONFIG.precios[cot.categoria]||{})[cot.plan] || 0;
+  if (cot.tipoServ==='servicio'){ if (cot.servicio) t += Number(cot.servicio.precio)||0; }
+  else if (cot.plan) t += (CONFIG.precios[cot.categoria]||{})[cot.plan] || 0;
   for (const [id,n] of Object.entries(cot.insumos)){
     const p = productos.find(x=>x.id===id); if(p) t += precioFinal(p)*n;
   }
@@ -3486,7 +3638,9 @@ function renderResumenCot(){
   const modelo = cot.modelo || $('#cModeloManual').value.trim() || '—';
   const pr = (CONFIG.precios[cot.categoria]||{})[cot.plan] || 0;
   let filas = `<div class="cfila"><span><b>${esc(marca)} ${esc(modelo)}</b>${cot.cc?` · ${cot.cc} cc`:''}</span><span>${CAT_LABEL[cot.categoria]||''}</span></div>`;
-  if (cot.plan){
+  if (cot.tipoServ==='servicio' && cot.servicio){
+    filas += `<div class="cfila plan"><span>${esc(cot.servicio.nombre)}</span><span>${money(cot.servicio.precio)}</span></div>`;
+  } else if (cot.plan){
     filas += `<div class="cfila plan"><span>${PLAN_META[cot.plan].nombre}</span><span>${money(pr)}</span></div>`;
     const nk = textoProxMant(cot.plan, cot.cc, cot.categoria);
     if (nk) filas += `<div class="cfila kmfila"><span>🗓️ ${esc(nk)}</span><span></span></div>`;
@@ -3522,7 +3676,7 @@ $$('#cPasos .paso').forEach(p=>p.onclick=()=>{
   if (t < cPaso){ irPaso(t); return; }
   const marca = cot.marca || $('#cMarcaManual').value.trim();
   if (t>=2 && (!marca || !cot.categoria)){ toast('Completa los datos de tu motocicleta','bad'); return; }
-  if (t>=3 && !cot.plan){ toast('Elige un plan primero','bad'); return; }
+  if (t>=3 && !cot.plan && !cot.servicio){ toast('Elige un plan o un servicio primero','bad'); return; }
   if (cPaso===1 && t>=2) renderPlanesCot();
   irPaso(t);
 });
@@ -3535,16 +3689,21 @@ $('#cSiguiente').onclick = ()=>{
     renderPlanesCot(); irPaso(2); return;
   }
   if (cPaso===2){
-    if (!cot.plan){ toast('Elige un plan de mantención','bad'); return; }
+    if (cot.tipoServ==='servicio'){
+      if (!cot.servicio){ toast('Elige un servicio','bad'); return; }
+    } else if (!cot.plan){ toast('Elige un plan de mantención','bad'); return; }
     irPaso(3); return;
   }
   if (cPaso===3){ irPaso(4); return; }
 };
+$('#cIrAgendar').onclick = ()=> irPaso(5);
 function reiniciarCot(){
   cot = cotNueva(); limpiarCotGuardada();
   $('#cMarcaManual').value=''; $('#cModeloManual').value=''; $('#cBuscaModelo').value='';
   $('#cModeloBox').classList.add('hidden'); $('#cManualBox').classList.add('hidden'); $('#cCilBox').classList.add('hidden');
   $$('#cMarcas button').forEach(x=>x.classList.remove('on'));
+  $('#cPlanBox').classList.remove('hidden'); $('#cServBox').classList.add('hidden');
+  $('#cAgendaForm').classList.remove('hidden'); $('#cAgendaOk').classList.add('hidden');
   renderMarcas(); irPaso(1);
 }
 $('#cReiniciar').onclick = reiniciarCot;
@@ -3556,7 +3715,9 @@ $('#cEnviar').onclick = ()=>{
   let msg = `Hola *Premium Motorbikes* 🏍️\nQuisiera cotizar una mantención:\n\n`;
   msg += `*Moto:* ${marca} ${modelo}${cot.cc?` (${cot.cc} cc)`:''}\n`;
   msg += `*Categoría:* ${CAT_LABEL[cot.categoria]}\n`;
-  if (cot.plan){
+  if (cot.tipoServ==='servicio' && cot.servicio){
+    msg += `*Servicio:* ${cot.servicio.nombre} — ${money(cot.servicio.precio)}\n`;
+  } else if (cot.plan){
     msg += `*Plan:* ${PLAN_META[cot.plan].nombre} — ${money(pr)}\n`;
     const nk = textoProxMant(cot.plan, cot.cc, cot.categoria);
     if (nk) msg += `_${nk}_\n`;
@@ -3654,7 +3815,11 @@ async function cotizaPDF(){
   doc.text('DETALLE',M+3,y+5.5); doc.text('VALOR',RX-3,y+5.5,{align:'right'}); y+=8;
   doc.setFont('helvetica','normal'); doc.setTextColor(30);
   let i=0;
-  if (cot.plan){
+  if (cot.tipoServ==='servicio' && cot.servicio){
+    if (i%2){ doc.setFillColor(248,249,250); doc.rect(M,y,W-M*2,7,'F'); }
+    doc.text(cot.servicio.nombre,M+3,y+5);
+    doc.text(money(cot.servicio.precio),RX-3,y+5,{align:'right'}); y+=7; i++;
+  } else if (cot.plan){
     const pr=(CONFIG.precios[cot.categoria]||{})[cot.plan]||0;
     if (i%2){ doc.setFillColor(248,249,250); doc.rect(M,y,W-M*2,7,'F'); }
     doc.text(PLAN_META[cot.plan].nombre+' · '+(CAT_LABEL[cot.categoria]||''),M+3,y+5);
@@ -3683,20 +3848,22 @@ async function cotizaPDF(){
   doc.setTextColor(...NEGRO); doc.text(money(totalCot()),RX-4,y+totH/2,{align:'right',baseline:'middle'});
   y+=totH+9;
 
-  /* ---------- próxima mantención (según cilindrada) ---------- */
-  const rango=rangoProxMant(cot.cc, cot.categoria);
-  const boxH=22;
-  doc.setDrawColor(...VERDE); doc.setLineWidth(0.5); doc.setFillColor(250,255,238);
-  doc.roundedRect(M,y,W-M*2,boxH,3,3,'FD');
-  doc.setFillColor(...VERDE); doc.circle(M+13,y+boxH/2,6,'F');
-  doc.setDrawColor(...NEGRO); doc.setLineWidth(0.6);
-  doc.rect(M+13-3,y+boxH/2-2.2,6,5); doc.line(M+13-3,y+boxH/2-0.2,M+13+3,y+boxH/2-0.2);
-  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...NEGRO);
-  doc.text('Próxima mantención:',M+25,y+8.5);
-  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...VERDE_TXT);
-  doc.text(`entre ${rango},`,M+25,y+14);
-  doc.text('una vez al año o por uso exhaustivo.',M+25,y+19);
-  y+=boxH+8;
+  /* ---------- próxima mantención (según cilindrada, solo si es mantención) ---------- */
+  if (cot.tipoServ!=='servicio'){
+    const rango=rangoProxMant(cot.cc, cot.categoria);
+    const boxH=22;
+    doc.setDrawColor(...VERDE); doc.setLineWidth(0.5); doc.setFillColor(250,255,238);
+    doc.roundedRect(M,y,W-M*2,boxH,3,3,'FD');
+    doc.setFillColor(...VERDE); doc.circle(M+13,y+boxH/2,6,'F');
+    doc.setDrawColor(...NEGRO); doc.setLineWidth(0.6);
+    doc.rect(M+13-3,y+boxH/2-2.2,6,5); doc.line(M+13-3,y+boxH/2-0.2,M+13+3,y+boxH/2-0.2);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...NEGRO);
+    doc.text('Próxima mantención:',M+25,y+8.5);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...VERDE_TXT);
+    doc.text(`entre ${rango},`,M+25,y+14);
+    doc.text('una vez al año o por uso exhaustivo.',M+25,y+19);
+    y+=boxH+8;
+  }
 
   /* ---------- nota ---------- */
   const notaTxt='Valor referencial. El precio final puede variar si la motocicleta requiere trabajos o repuestos adicionales, lo que se informará antes de realizarlos.';
@@ -3762,6 +3929,208 @@ async function cotizaPDF(){
   doc.save(`Cotizacion_PremiumMotorbikes_${marca}_${modelo}.pdf`.replace(/\s+/g,'_'));
 }
 $('#cPdf').onclick=async()=>{ toast('Generando PDF…','ok'); try{ await cotizaPDF(); }catch(e){ toast('No se pudo generar el PDF','bad'); } };
+
+/* ============================================================
+   PASO 5 · AGENDAR HORA
+   ============================================================ */
+let citaActual = null;
+function fechaBonita(fechaStr){
+  if (!fechaStr) return '—';
+  return new Date(fechaStr+'T00:00:00').toLocaleDateString('es-CL',{weekday:'short',day:'2-digit',month:'short'});
+}
+function horasDisponiblesDia(fechaStr){
+  const d = new Date(fechaStr+'T00:00:00');
+  const dow = d.getDay(); // 0=Dom … 6=Sáb
+  if (dow===0) return [];
+  const partes = (CONFIG.taller.horario||'').split('·').map(s=>s.trim()).filter(Boolean);
+  const rango = dow===6 ? partes[3] : partes[1];
+  if (!rango) return [];
+  const m = rango.match(/(\d{1,2})[:.]?(\d{2})?\s*a\s*(\d{1,2})[:.]?(\d{2})?/i);
+  if (!m) return [];
+  const abre = parseInt(m[1]) + (m[2]?parseInt(m[2])/60:0);
+  const cierra = parseInt(m[3]) + (m[4]?parseInt(m[4])/60:0);
+  const horas=[];
+  for (let h=Math.ceil(abre); h<=Math.floor(cierra); h++) horas.push(h);
+  return horas;
+}
+function iniciarAgenda(){
+  const iso = new Date().toISOString().slice(0,10);
+  const inp = $('#cFecha');
+  inp.min = iso;
+  if (!inp.value) inp.value = cot.agFecha || iso;
+  cot.agFecha = inp.value;
+  renderHorasCot(cot.agFecha);
+  $('#cAgNombre').value = $('#cAgNombre').value || cot.agNombre || '';
+  $('#cAgRut').value = $('#cAgRut').value || cot.agRut || '';
+  $('#cAgCorreo').value = $('#cAgCorreo').value || cot.agCorreo || '';
+  $('#cAgTelefono').value = $('#cAgTelefono').value || cot.agTelefono || '';
+  $('#cAgPatente').value = $('#cAgPatente').value || cot.agPatente || '';
+}
+$('#cFecha').onchange = ()=>{ cot.agHora=null; cot.agFecha=$('#cFecha').value; renderHorasCot(cot.agFecha); };
+async function renderHorasCot(fechaStr){
+  const cont = $('#cHoras');
+  const horas = horasDisponiblesDia(fechaStr);
+  if (!horas.length){ cont.innerHTML = '<p class="csub" style="margin:0">Cerrado ese día, elige otra fecha.</p>'; return; }
+  cont.innerHTML = '<p class="csub" style="margin:0">Cargando horarios…</p>';
+  let ocupadas = {};
+  try{
+    const { data } = await db.rpc('pm_cupos_fecha', { p_fecha: fechaStr });
+    (data||[]).forEach(r=> ocupadas[r.hora] = Number(r.ocupadas));
+  }catch(e){}
+  cont.innerHTML = horas.map(h=>{
+    const hStr = String(h).padStart(2,'0')+':00';
+    const lleno = (ocupadas[hStr]||0) >= 3;
+    const on = cot.agHora===hStr;
+    return `<div class="seg ${on?'on':''}" data-h="${hStr}" ${lleno?'style="opacity:.35;pointer-events:none"':''}>${hStr}${lleno?' · lleno':''}</div>`;
+  }).join('');
+  cont.querySelectorAll('.seg').forEach(b=>b.onclick=()=>{
+    cot.agHora=b.dataset.h;
+    cont.querySelectorAll('.seg').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  });
+}
+$('#cConfirmarCita').onclick = async ()=>{
+  const nombre=$('#cAgNombre').value.trim(), rut=$('#cAgRut').value.trim();
+  const correo=$('#cAgCorreo').value.trim(), telefono=$('#cAgTelefono').value.trim();
+  const patente=cleanPat($('#cAgPatente').value);
+  if (!nombre || !correo || !telefono){ toast('Completa nombre, correo y teléfono','bad'); return; }
+  if (!cot.agFecha || !cot.agHora){ toast('Elige fecha y hora','bad'); return; }
+  if (cot.tipoServ==='servicio' && !cot.servicio){ toast('Elige un servicio en el paso 2','bad'); return; }
+  if (cot.tipoServ==='mantencion' && !cot.plan){ toast('Elige un plan en el paso 2','bad'); return; }
+  cot.agNombre=nombre; cot.agRut=rut; cot.agCorreo=correo; cot.agTelefono=telefono; cot.agPatente=patente; guardarCot();
+  const marca = cot.marca || $('#cMarcaManual').value.trim();
+  const modelo = cot.modelo || $('#cModeloManual').value.trim();
+  const btn=$('#cConfirmarCita'); btn.disabled=true; btn.textContent='Agendando…';
+  try{
+    const { data, error } = await db.rpc('pm_crear_cita', {
+      p_fecha: cot.agFecha, p_hora: cot.agHora, p_tipo: cot.tipoServ,
+      p_categoria: cot.categoria,
+      p_plan_key: cot.tipoServ==='mantencion' ? cot.plan : null,
+      p_plan_nombre: cot.tipoServ==='servicio' ? cot.servicio.nombre : (PLAN_META[cot.plan]||{}).nombre,
+      p_plan_precio: totalCot(),
+      p_moto_marca: marca, p_moto_modelo: modelo, p_moto_patente: patente,
+      p_cliente_nombre: nombre, p_cliente_rut: rut, p_cliente_email: correo, p_cliente_telefono: telefono,
+      p_notas: null
+    });
+    if (error) throw error;
+    const cita = (data && data[0]) || null;
+    cot.agFolio = cita ? cita.folio : null; guardarCot();
+    citaActual = { folio:cot.agFolio, fecha:cot.agFecha, hora:cot.agHora, nombre, rut, correo, telefono, patente,
+      marca, modelo, tipoServ:cot.tipoServ, plan:cot.plan, servicio:cot.servicio, total: totalCot() };
+    const servicioTxt = citaActual.tipoServ==='servicio' && citaActual.servicio ? citaActual.servicio.nombre : (PLAN_META[citaActual.plan]||{}).nombre || '—';
+    $('#cAgendaFolio').textContent = 'N° de cita: '+(citaActual.folio||'—');
+    $('#cAgendaResumen').innerHTML = `
+      <div class="cfila"><span><b>${esc(marca)} ${esc(modelo)}</b></span><span>${esc(patente||'')}</span></div>
+      <div class="cfila plan"><span>${esc(servicioTxt)}</span><span>${money(citaActual.total)}</span></div>
+      <div class="cfila"><span>Fecha</span><span>${fechaBonita(cot.agFecha)} · ${cot.agHora} hrs</span></div>
+      <div class="cfila"><span>Cliente</span><span>${esc(nombre)}</span></div>`;
+    $('#cAgendaForm').classList.add('hidden');
+    $('#cAgendaOk').classList.remove('hidden');
+    toast('¡Hora agendada!','ok');
+  }catch(e){
+    toast(e.message||'No se pudo agendar, intenta otra hora','bad');
+    renderHorasCot(cot.agFecha);
+  }
+  btn.disabled=false; btn.textContent='Confirmar hora';
+};
+$('#cAgendaWa').onclick = ()=>{
+  if (!citaActual) return;
+  const servicioTxt = citaActual.tipoServ==='servicio' && citaActual.servicio ? citaActual.servicio.nombre : (PLAN_META[citaActual.plan]||{}).nombre || '—';
+  let msg = `Hola *Premium Motorbikes* 🏍️\nAgendé una hora:\n\n`;
+  msg += `*N° cita:* ${citaActual.folio}\n`;
+  msg += `*Fecha:* ${fechaBonita(citaActual.fecha)} · ${citaActual.hora} hrs\n`;
+  msg += `*Moto:* ${citaActual.marca} ${citaActual.modelo}${citaActual.patente?' ('+citaActual.patente+')':''}\n`;
+  msg += `*Servicio:* ${servicioTxt} — ${money(citaActual.total)}\n`;
+  msg += `*Cliente:* ${citaActual.nombre} · ${citaActual.telefono}`;
+  const tel=(CONFIG.taller.telefonoWa||'').replace(/\D/g,'');
+  window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`,'_blank');
+};
+$('#cAgendaPdf').onclick = async ()=>{ toast('Generando PDF…','ok'); try{ await citaPDF(citaActual); }catch(e){ toast('No se pudo generar el PDF','bad'); } };
+$('#cAgendaNueva').onclick = ()=>{
+  cot.agFecha=null; cot.agHora=null; cot.agFolio=null; guardarCot();
+  $('#cAgendaOk').classList.add('hidden'); $('#cAgendaForm').classList.remove('hidden');
+  iniciarAgenda();
+};
+
+async function citaPDF(c){
+  if (!c) return;
+  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210, M=14, RX=W-M;
+  const NEGRO=[13,15,19], VERDE=[179,252,6], VERDE_TXT=[77,124,15], GRIS_CLARO=[245,246,248];
+  const logo=await loadImg('./logo.png');
+  const HH=40;
+  doc.setFillColor(...NEGRO); doc.rect(0,0,W,HH,'F');
+  doc.setFillColor(...VERDE); doc.rect(0,HH,W,1.6,'F');
+  if (logo){ try{ doc.addImage(logo,'PNG',M,7,26,26); }catch(e){} }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(255,255,255);
+  doc.text('PREMIUM MOTORBIKES',RX,13,{align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(200,200,200);
+  doc.text(CONFIG.taller.subtitulo,RX,18.5,{align:'right'});
+  doc.setFontSize(8.5);
+  let ry=25;
+  [CONFIG.taller.telefono, CONFIG.taller.direccion].forEach(t=>{
+    if (!t) return;
+    const tw=doc.getTextWidth(t);
+    doc.setFillColor(...VERDE); doc.circle(RX-tw-3.5,ry-1.2,1,'F');
+    doc.setTextColor(215,215,215); doc.text(t,RX,ry,{align:'right'}); ry+=4.8;
+  });
+
+  let y=52;
+  doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.setTextColor(...NEGRO);
+  doc.text('CONFIRMACIÓN ',M,y);
+  const w1=doc.getTextWidth('CONFIRMACIÓN ');
+  doc.setTextColor(...VERDE_TXT); doc.text('DE HORA',M+w1,y);
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...VERDE_TXT);
+  doc.text('N° DE CITA',RX,y-8,{align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...NEGRO);
+  doc.text(c.folio||'—',RX,y-3,{align:'right'});
+  y+=12;
+
+  const cardH=24;
+  doc.setFillColor(...GRIS_CLARO); doc.roundedRect(M,y,W-M*2,cardH,3,3,'F');
+  doc.setFillColor(...VERDE); doc.roundedRect(M,y,cardH,cardH,3,3,'F');
+  doc.setFillColor(...VERDE); doc.rect(M+cardH-3,y,3,cardH,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.setTextColor(...NEGRO);
+  doc.text('📅',M+cardH/2-4,y+cardH/2+4);
+  const tx=M+cardH+6;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...VERDE_TXT);
+  doc.text('FECHA Y HORA',tx,y+8);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...NEGRO);
+  doc.text(`${fechaBonita(c.fecha)} · ${c.hora} hrs`,tx,y+15);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(120);
+  doc.text(`${c.marca||''} ${c.modelo||''}`.trim()+(c.patente?'  ·  '+c.patente:''),tx,y+20.5);
+  y+=cardH+10;
+
+  doc.setFillColor(...NEGRO); doc.rect(M,y,W-M*2,8,'F');
+  doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('DETALLE',M+3,y+5.5); doc.text('VALOR',RX-3,y+5.5,{align:'right'}); y+=8;
+  const servicioTxt = c.tipoServ==='servicio' && c.servicio ? c.servicio.nombre : (PLAN_META[c.plan]||{}).nombre || '—';
+  doc.setFont('helvetica','normal'); doc.setTextColor(30);
+  doc.text(servicioTxt,M+3,y+5); doc.text(money(c.total),RX-3,y+5,{align:'right'}); y+=7;
+  doc.setDrawColor(210); doc.setLineWidth(0.2); doc.line(M,y,RX,y); y+=10;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...VERDE_TXT);
+  doc.text('DATOS DE CONTACTO',M,y); y+=6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(40);
+  [['Nombre',c.nombre],['RUT',c.rut],['Correo',c.correo],['Teléfono',c.telefono]].forEach(([l,v])=>{
+    if (!v) return;
+    doc.text(`${l}: ${v}`,M,y); y+=5.5;
+  });
+  y+=6;
+
+  doc.setDrawColor(...VERDE); doc.setLineWidth(0.5); doc.setFillColor(250,255,238);
+  const notaLines = doc.splitTextToSize('Te esperamos en el horario agendado. Si necesitas cambiar tu hora, escríbenos por WhatsApp con tu número de cita.', W-M*2-10);
+  const boxH = notaLines.length*4.4+10;
+  doc.roundedRect(M,y,W-M*2,boxH,3,3,'FD');
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...VERDE_TXT);
+  doc.text(notaLines,M+6,y+7);
+  y+=boxH+10;
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(140);
+  if (CONFIG.taller.direccion) doc.text('Dirección: '+CONFIG.taller.direccion,M,y);
+
+  doc.save(`Cita_PremiumMotorbikes_${c.folio||''}.pdf`.replace(/\s+/g,'_'));
+}
 
 /* ============================================================
    PWA · instalación
