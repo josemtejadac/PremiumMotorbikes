@@ -1127,7 +1127,8 @@
       <button class="iconbtn dark" id="cotizaBack">←</button>
       <img src="./logo.png" alt="Premium Motorbikes" />
       <div class="brandtxt"><strong>Cotizador</strong><span>Premium Motorbikes</span></div>
-      <button class="iconbtn dark temabtn" title="Modo claro / oscuro" aria-label="Cambiar tema" style="margin-left:auto">🌙</button>
+      <a class="iconbtn dark" style="margin-left:auto;background:#25D366;color:#fff;text-decoration:none;border-radius:8px" href="https://wa.me/56953209886?text=Hola%2C%20tengo%20una%20duda%20mientras%20cotizaba%20en%20la%20p%C3%A1gina" target="_blank" rel="noopener" title="¿Dudas? Escríbenos por WhatsApp">🟢</a>
+      <button class="iconbtn dark temabtn" title="Modo claro / oscuro" aria-label="Cambiar tema">🌙</button>
       <button class="iconbtn dark" id="cReiniciarTop" title="Empezar de nuevo">↻</button>
     </div>
     <div class="pasos" id="cPasos">
@@ -3557,7 +3558,13 @@ function renderPlanesCot(){
 function renderServiciosCot(){
   const arr = productos.filter(p=>p.categoria==='servicios' && p.activo);
   const G = $('#cServicios');
-  if (!arr.length){ G.innerHTML = `<div class="empty" style="grid-column:1/-1"><p>Aún no hay servicios cargados. Escríbenos por WhatsApp para cotizar el tuyo.</p></div>`; return; }
+  if (!arr.length){
+    G.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <p>Aún no hay servicios cargados. Escríbenos por WhatsApp para cotizar el tuyo.</p>
+      <a class="btn-wa" style="display:inline-flex;margin-top:10px;padding:12px 20px" href="https://wa.me/56953209886?text=Hola%2C%20quisiera%20cotizar%20un%20servicio%20espec%C3%ADfico%20para%20mi%20motocicleta" target="_blank" rel="noopener">🟢 Escribir por WhatsApp</a>
+    </div>`;
+    return;
+  }
   G.innerHTML = arr.map(p=>{
     const on = cot.servicio && cot.servicio.id===p.id;
     return `<div class="pcard ${on?'on':''}" data-sv="${p.id}" style="cursor:pointer${on?';border-color:var(--lima)':''}">
