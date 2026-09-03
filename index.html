@@ -162,7 +162,7 @@
   }
   /* botones de elección */
   #loginChoice{display:flex;flex-direction:column;gap:12px}
-  .lbtn{display:flex;align-items:center;gap:14px;text-align:left;padding:16px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
+  .lbtn{display:flex;align-items:center;gap:14px;text-align:left;padding:16px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);text-decoration:none;cursor:pointer}
   .lbtn .lbi{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-size:22px;line-height:1;flex-shrink:0}
   .lbtn .lbt{font-family:Oswald;font-size:15px;color:#fff;text-transform:uppercase;letter-spacing:.5px;line-height:1.1}
   .lbtn .lbt small{display:block;font-family:Inter;font-weight:400;font-size:11.5px;color:rgba(255,255,255,.4);text-transform:none;letter-spacing:0;margin-top:3px}
@@ -754,17 +754,20 @@
       <button class="lbtn lbtn-cotiza" id="chooseCotiza">
         <span class="lbi">🧮</span><span class="lbt">Cotiza tu mantención<small>Calcula el precio de tu servicio</small></span><span class="lba">›</span>
       </button>
-      <button class="lbtn lbtn-taller" id="chooseTaller">
-        <span class="lbi">🔧</span><span class="lbt">Login Premium Motorbikes<small>Trabajadores del taller</small></span><span class="lba">›</span>
+      <a class="lbtn lbtn-cotiza-esp" id="chooseCotizaEspecifico" href="https://wa.me/56953209886?text=Hola%2C%20quisiera%20cotizar%20un%20servicio%20espec%C3%ADfico%20para%20mi%20motocicleta" target="_blank" rel="noopener">
+        <span class="lbi">🛠️</span><span class="lbt">Cotiza tu servicio específico<small>Escríbenos directo por WhatsApp</small></span><span class="lba">›</span>
+      </a>
+      <button class="lbtn lbtn-tienda" id="chooseTienda">
+        <span class="lbi">🛒</span><span class="lbt">Tienda Premium Motorbikes<small>Neumáticos, aceites y repuestos</small></span><span class="lba">›</span>
       </button>
       <button class="lbtn lbtn-cliente" id="chooseCliente">
         <span class="lbi">🏍️</span><span class="lbt">Ingreso Clientes<small>Consulta el estado de tu motocicletacicleta</small></span><span class="lba">›</span>
       </button>
-      <button class="lbtn lbtn-tienda" id="chooseTienda">
-        <span class="lbi">🛒</span><span class="lbt">Tienda Premium Motorbikes<small>Neumáticos, aceites y repuestos</small></span><span class="lba">›</span>
-      </button>
       <button class="lbtn lbtn-web" id="chooseWeb">
-        <span class="lbi">🌐</span><span class="lbt">Nuestra Página<small>Conoce el taller, servicios y más</small></span><span class="lba">›</span>
+        <span class="lbi">ℹ️</span><span class="lbt">Acerca de nosotros<small>Conoce el taller, servicios y más</small></span><span class="lba">›</span>
+      </button>
+      <button class="lbtn lbtn-taller" id="chooseTaller">
+        <span class="lbi">🔒</span><span class="lbt">Acceso personal autorizado<small>Trabajadores del taller</small></span><span class="lba">›</span>
       </button>
     </div>
 
@@ -1283,7 +1286,7 @@
       <div class="wsvc"><div class="wsvc-icon">📡</div><div><h3>Seguridad y GPS</h3><p>Venta e instalación profesional de sistemas GPS diseñados para motocicletas. Instalaciones cuidadas, seguras y discretas, sin modificaciones que afecten el sistema eléctrico o de carga.</p></div></div>
       <div class="wsvc"><div class="wsvc-icon">📦</div><div><h3>Importación de repuestos</h3><p>Gestionamos la importación de repuestos específicos, tanto originales como alternativos de alta calidad. Plazos estimados desde 7 hasta 30 días según el producto.</p></div></div>
     </div>
-    <div style="text-align:center;margin-top:24px"><button class="wbtn" data-go="cotiza" style="background:var(--lima);color:#0b0d10;font-weight:700">Cotizar mi mantención</button></div>
+    <div style="text-align:center;margin-top:24px"><a class="wbtn" href="https://wa.me/56953209886?text=Hola%2C%20quisiera%20cotizar%20la%20mantenci%C3%B3n%20de%20mi%20motocicleta" target="_blank" rel="noopener" style="background:var(--lima);color:#0b0d10;font-weight:700">🟢 Cotizar mi mantención por WhatsApp</a></div>
   </section>
 
   <!-- CONTACTO -->
