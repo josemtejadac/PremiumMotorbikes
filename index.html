@@ -2871,13 +2871,17 @@ async function generarPDF(s){
     doc.text('SERVICIOS INCLUIDOS EN EL PLAN',M,y); y+=5;
     doc.setTextColor(60); doc.setFont('helvetica','normal'); doc.setFontSize(8);
     const half=Math.ceil(s.checklist.length/2);
+    const colW=(W-M*2)/2-4;
+    let yCol=[y,y];
     s.checklist.forEach((c,i)=>{
-      const col=i<half?0:1; const row=i<half?i:i-half;
+      const col=i<half?0:1;
       const x=M+col*(W-M*2)/2;
-      const line=doc.splitTextToSize('• '+c,(W-M*2)/2-4);
-      doc.text(line[0], x, y+row*4.6);
+      const lines=doc.splitTextToSize('• '+c,colW);
+      if (yCol[col]>265){ doc.addPage(); yCol=[20,20]; }
+      doc.text(lines, x, yCol[col]);
+      yCol[col] += lines.length*3.6 + 1.4;
     });
-    y+= half*4.6 + 6;
+    y = Math.max(yCol[0], yCol[1]) + 5;
   }
   // observaciones
   if (s.observaciones){
