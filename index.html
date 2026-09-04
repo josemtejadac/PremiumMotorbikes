@@ -1022,6 +1022,7 @@
     <div class="tbar">
       <input id="tBuscar" placeholder="Buscar producto…" />
       <button class="tnuevo hidden" id="tNuevoBtn">＋ Agregar producto</button>
+      <button class="tnuevo hidden" id="tCatsBtn" style="background:var(--panel2);color:var(--tinta)">🗂 Categorías</button>
     </div>
     <div class="tsub" id="tSub"></div>
     <div class="tgrid" id="tGrid"></div>
@@ -1117,6 +1118,16 @@
         <button class="btn-save" id="pGuardar" style="flex:0 0 auto;padding:12px 20px">Guardar</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- gestión de categorías -->
+<div id="catModal" class="modalov">
+  <div class="modalbox">
+    <h3>🗂 Categorías</h3>
+    <p class="modalsub">Reordénalas con las flechas o elimina las que no uses (solo si están vacías).</p>
+    <div id="catLista" style="margin:14px 0;display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto"></div>
+    <div class="modalact"><button class="btn-ghost" id="catCerrar" style="width:100%">Cerrar</button></div>
   </div>
 </div>
 
@@ -1878,6 +1889,12 @@ async function abrirAgenda(){
   if (error){ $('#agendaLista').innerHTML = '<p class="modalsub">Error al cargar la agenda.</p>'; return; }
   renderAgendaLista(data||[]);
 }
+function citaWaLink(c){
+  const tel=(c.cliente_telefono||'').replace(/\D/g,'');
+  const tel2 = tel.startsWith('56') ? tel : (tel.startsWith('9') ? '56'+tel : tel);
+  const msg = `Hola ${c.cliente_nombre||''}, te escribimos de Premium Motorbikes por tu cita ${c.folio} del ${citaFechaLabel(c.fecha,c.hora)}.`;
+  return `https://wa.me/${tel2}?text=${encodeURIComponent(msg)}`;
+}
 function renderAgendaLista(citas){
   const L=$('#agendaLista');
   if (!citas.length){ L.innerHTML='<p class="modalsub">No hay citas agendadas todavía.</p>'; return; }
@@ -1892,11 +1909,50 @@ function renderAgendaLista(citas){
       <div style="margin-top:6px;font-size:14px"><b>${esc(c.cliente_nombre)}</b> · ${esc(c.cliente_telefono||'')}</div>
       <div style="font-size:13px;color:var(--gris5)">${esc([c.moto_marca,c.moto_modelo].filter(Boolean).join(' ')||'—')}${c.moto_patente?' · '+esc(c.moto_patente):''}</div>
       <div style="font-size:13px;margin-top:2px">Servicio: <b>${esc(servicio||'—')}</b></div>
-      ${tomada
-        ? `<div style="margin-top:10px;font-size:13px;font-weight:700;color:var(--acento-txt)">✅ Tomado por: ${esc(c.tomado_por||'—')}</div>`
-        : `<button class="btn-save" data-tomar="${c.id}" style="width:100%;margin-top:10px;padding:11px">Tomar esta cita</button>`}
+      ${tomada ? `<div style="margin-top:10px;font-size:13px;font-weight:700;color:var(--acento-txt)">✅ Tomado por: ${esc(c.tomado_por||'—')}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        ${tomada ? '' : `<button class="btn-save" data-tomar="${c.id}" style="flex:1 1 140px;padding:11px">Tomar esta cita</button>`}
+        <a class="btn-wa" href="${citaWaLink(c)}" target="_blank" rel="noopener" style="flex:1 1 140px;padding:11px;justify-content:center;text-decoration:none">🟢 WhatsApp</a>
+        <button class="btn-ghost" data-editar="${c.id}" style="flex:1 1 140px;padding:11px">✏️ Cambiar hora</button>
+        <button class="btn-del" data-cancelar="${c.id}" style="flex:1 1 140px;padding:11px">🗑️ Cancelar</button>
+      </div>
+      <div class="hidden" data-editbox="${c.id}" style="margin-top:10px;padding:10px;border:1px solid var(--gris2);border-radius:10px">
+        <div class="row c2">
+          <div><label style="font-size:11px">Nueva fecha</label><input type="date" data-editfecha="${c.id}" value="${c.fecha}"></div>
+          <div><label style="font-size:11px">Nueva hora</label>
+            <select data-edithora="${c.id}" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--gris2)">
+              ${['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'].map(h=>`<option value="${h}" ${h===c.hora?'selected':''}>${h}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <button class="btn-save" data-guardarhora="${c.id}" style="width:100%;margin-top:8px;padding:10px">Guardar nueva hora</button>
+      </div>
     </div>`;
   }).join('');
+  L.querySelectorAll('[data-editar]').forEach(b=>b.onclick=()=>{
+    const box = L.querySelector(`[data-editbox="${b.dataset.editar}"]`);
+    box.classList.toggle('hidden');
+  });
+  L.querySelectorAll('[data-guardarhora]').forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.guardarhora;
+    const fecha = L.querySelector(`[data-editfecha="${id}"]`).value;
+    const hora = L.querySelector(`[data-edithora="${id}"]`).value;
+    if (!fecha || !hora){ toast('Elige fecha y hora','bad'); return; }
+    b.disabled=true; b.textContent='Guardando…';
+    const { count } = await db.from('premium_citas').select('id',{count:'exact',head:true})
+      .eq('fecha',fecha).eq('hora',hora).neq('estado','cancelada').neq('id',id);
+    if ((count||0) >= 3){ toast('Ese horario ya está completo','bad'); b.disabled=false; b.textContent='Guardar nueva hora'; return; }
+    const { error } = await db.from('premium_citas').update({ fecha, hora, updated_at:new Date().toISOString() }).eq('id', id);
+    if (error){ toast('No se pudo actualizar','bad'); } else { toast('Hora actualizada','ok'); }
+    abrirAgenda();
+  });
+  L.querySelectorAll('[data-cancelar]').forEach(b=>b.onclick=async()=>{
+    if (!confirm('¿Cancelar esta cita? El cliente ya no aparecerá en la agenda.')) return;
+    b.disabled=true; b.textContent='Cancelando…';
+    const { error } = await db.from('premium_citas').update({ estado:'cancelada' }).eq('id', b.dataset.cancelar);
+    if (error){ toast('No se pudo cancelar','bad'); } else { toast('Cita cancelada','ok'); }
+    abrirAgenda(); loadAgendaBadge();
+  });
   L.querySelectorAll('[data-tomar]').forEach(b=>b.onclick=async()=>{
     b.disabled=true; b.textContent='Tomando…';
     const { data, error } = await db.from('premium_citas')
@@ -2184,6 +2240,7 @@ async function openEditor(s){
 function closeEditor(){ $('#editor').classList.remove('open'); document.body.style.overflow=''; current=null; }
 
 /* ===== catálogos (motos + productos) para el editor ===== */
+let catsCargadas = false;
 async function ensureCatalogos(){
   if (!motosCat.length){
     const { data } = await db.from('premium_motos').select('marca,modelo').eq('activo',true).order('marca').order('modelo');
@@ -2192,6 +2249,14 @@ async function ensureCatalogos(){
   if (!productos.length){
     const { data } = await db.from('premium_productos').select('*').order('categoria').order('orden');
     productos = data || [];
+  }
+  if (!catsCargadas){
+    try{
+      const { data } = await db.from('premium_config').select('value').eq('key','categorias').maybeSingle();
+      if (data && data.value && typeof data.value === 'object' && !Array.isArray(data.value)) CATS = data.value;
+    }catch(e){}
+    IP_CATS = Object.entries(CATS).map(([k,v])=>[k,v]);
+    catsCargadas = true;
   }
 }
 
@@ -3021,6 +3086,7 @@ async function cargarCategorias(){
       CATS = data.value;
     }
   }catch(e){}
+  catsCargadas = true;
   IP_CATS = Object.entries(CATS).map(([k,v])=>[k,v]);
   if (!catActual || !CATS[catActual]) catActual = Object.keys(CATS)[0] || 'neumaticos';
   renderCatTabs();
@@ -3111,6 +3177,51 @@ $('#pAddCat').onclick=async()=>{
   $('#pNewCat').value = '';
   toast('Categoría "'+raw+'" creada','ok');
 };
+
+/* ---- gestión de categorías: reordenar / eliminar ---- */
+$('#tCatsBtn').onclick = ()=>{ renderCatLista(); $('#catModal').classList.add('open'); };
+$('#catCerrar').onclick = ()=> $('#catModal').classList.remove('open');
+$('#catModal').onclick = e=>{ if(e.target.id==='catModal') $('#catModal').classList.remove('open'); };
+function renderCatLista(){
+  const L=$('#catLista'); const keys=Object.keys(CATS);
+  L.innerHTML = keys.map((k,i)=>{
+    const n = productos.filter(p=>p.categoria===k).length;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--gris2);border-radius:10px">
+      <div style="flex:1;min-width:0">
+        <b>${esc(CATS[k])}</b>
+        <div style="font-size:11px;color:var(--gris5)">${n} producto${n===1?'':'s'}</div>
+      </div>
+      <button data-catup="${k}" ${i===0?'disabled':''} style="width:32px;height:32px;flex:0 0 auto;border-radius:8px;background:var(--panel2);opacity:${i===0?'.4':'1'}">▲</button>
+      <button data-catdown="${k}" ${i===keys.length-1?'disabled':''} style="width:32px;height:32px;flex:0 0 auto;border-radius:8px;background:var(--panel2);opacity:${i===keys.length-1?'.4':'1'}">▼</button>
+      <button data-catdel="${k}" style="width:32px;height:32px;flex:0 0 auto;border-radius:8px;background:#fee2e2;color:#b91c1c">🗑</button>
+    </div>`;
+  }).join('');
+  L.querySelectorAll('[data-catup]').forEach(b=>b.onclick=()=>moverCategoria(b.dataset.catup,-1));
+  L.querySelectorAll('[data-catdown]').forEach(b=>b.onclick=()=>moverCategoria(b.dataset.catdown,1));
+  L.querySelectorAll('[data-catdel]').forEach(b=>b.onclick=()=>eliminarCategoria(b.dataset.catdel));
+}
+async function moverCategoria(k, dir){
+  const entries = Object.entries(CATS);
+  const i = entries.findIndex(([kk])=>kk===k);
+  const j = i+dir;
+  if (j<0 || j>=entries.length) return;
+  [entries[i],entries[j]] = [entries[j],entries[i]];
+  CATS = Object.fromEntries(entries);
+  IP_CATS = Object.entries(CATS).map(([kk,v])=>[kk,v]);
+  await guardarCategorias();
+  renderCatTabs(); renderCatSelect(); renderCatChipsInsumos(); renderCatLista();
+}
+async function eliminarCategoria(k){
+  const n = productos.filter(p=>p.categoria===k).length;
+  if (n>0){ toast('Esa categoría tiene '+n+' producto(s). Muévelos o elimínalos primero.','bad'); return; }
+  if (!confirm('¿Eliminar la categoría "'+CATS[k]+'"?')) return;
+  delete CATS[k];
+  IP_CATS = Object.entries(CATS).map(([kk,v])=>[kk,v]);
+  if (catActual===k) catActual = Object.keys(CATS)[0] || null;
+  await guardarCategorias();
+  renderCatTabs(); renderCatSelect(); renderCatChipsInsumos(); renderCatLanding(); renderCatLista(); renderProductos();
+  toast('Categoría eliminada','ok');
+}
 
 function renderProductos(){
   const q=($('#tBuscar').value||'').toLowerCase().trim();
@@ -3251,6 +3362,7 @@ function setAdmin(v){
   $('#adminBtn').classList.toggle('on', v);
   $('#adminBtn').textContent = v ? '🔓' : '🔒';
   $('#tNuevoBtn').classList.toggle('hidden', !v);
+  $('#tCatsBtn').classList.toggle('hidden', !v);
   renderProductos();
 }
 $('#adminBtn').onclick=()=>{
@@ -3567,17 +3679,24 @@ function renderServiciosCot(){
   }
   G.innerHTML = arr.map(p=>{
     const on = cot.servicio && cot.servicio.id===p.id;
+    const gratis = precioFinal(p)<=0;
     return `<div class="pcard ${on?'on':''}" data-sv="${p.id}" style="cursor:pointer${on?';border-color:var(--lima)':''}">
       <div class="pbody">
         ${p.marca?`<div class="pmarca">${esc(p.marca)}</div>`:''}
         <div class="pnom">${esc(p.nombre)}</div>
         ${p.descripcion?`<div class="pdesc">${esc(p.descripcion)}</div>`:''}
-        <div class="pprecio">${money(precioFinal(p))}</div>
+        <div class="pprecio" ${gratis?'style="color:var(--verde)"':''}>${gratis?'GRATIS':money(precioFinal(p))}</div>
       </div></div>`;
   }).join('');
   G.querySelectorAll('[data-sv]').forEach(c=>c.onclick=()=>{
     const p = arr.find(x=>x.id===c.dataset.sv);
     cot.servicio = { id:p.id, nombre:p.nombre, precio:precioFinal(p) };
+    if (precioFinal(p)<=0){
+      actualizarTotalCot();
+      toast('Te llevamos directo a agendar tu hora','ok');
+      irPaso(5);
+      return;
+    }
     renderServiciosCot(); actualizarTotalCot();
   });
 }
