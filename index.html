@@ -1419,6 +1419,31 @@
   <div class="modalbox" style="max-width:560px">
     <h3>📅 Agenda de horas</h3>
     <p class="modalsub">Citas agendadas por clientes desde el cotizador. Cualquiera puede tomar una.</p>
+    <button class="btn-ghost" id="agendaNuevaBtn" style="width:100%">➕ Agregar cita manual</button>
+    <div id="agendaNuevaBox" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--gris2);border-radius:10px">
+      <div class="row c2">
+        <div><label>Fecha</label><input type="date" id="anFecha"></div>
+        <div><label>Hora</label><select id="anHora" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--gris2)"></select></div>
+      </div>
+      <div class="row c2" style="margin-top:10px">
+        <div><label>Servicio / plan</label><input id="anServicio" placeholder="Ej: Cambio de aceite"></div>
+        <div><label>Precio</label><input id="anPrecio" type="number" inputmode="numeric" min="0" placeholder="0"></div>
+      </div>
+      <div class="row c2" style="margin-top:10px">
+        <div><label>Marca moto</label><input id="anMarca" placeholder="Ej: Honda"></div>
+        <div><label>Modelo</label><input id="anModelo" placeholder="Ej: CB190R"></div>
+      </div>
+      <label style="margin-top:10px">Patente</label><input id="anPatente" placeholder="Ej: ABCD12" autocapitalize="characters">
+      <div class="row c2" style="margin-top:10px">
+        <div><label>Nombre cliente</label><input id="anNombre" placeholder="Nombre completo"></div>
+        <div><label>RUT</label><input id="anRut" placeholder="Opcional"></div>
+      </div>
+      <div class="row c2" style="margin-top:10px">
+        <div><label>Correo</label><input id="anCorreo" type="email" placeholder="Opcional"></div>
+        <div><label>Teléfono</label><input id="anTelefono" placeholder="+56 9…"></div>
+      </div>
+      <button class="btn-save" id="anGuardar" style="width:100%;margin-top:12px;padding:12px">Agendar y asignarme esta cita</button>
+    </div>
     <div id="agendaLista" style="margin:14px 0;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>
     <div class="modalact">
       <button class="btn-ghost" id="agendaCerrar" style="width:100%">Cerrar</button>
@@ -1882,6 +1907,7 @@ function citaFechaLabel(fecha,hora){
 }
 async function abrirAgenda(){
   $('#agendaModal').classList.add('open');
+  $('#agendaNuevaBox').classList.add('hidden');
   $('#agendaLista').innerHTML = '<p class="modalsub">Cargando…</p>';
   const { data, error } = await db.from('premium_citas')
     .select('*').neq('estado','cancelada')
@@ -1889,6 +1915,46 @@ async function abrirAgenda(){
   if (error){ $('#agendaLista').innerHTML = '<p class="modalsub">Error al cargar la agenda.</p>'; return; }
   renderAgendaLista(data||[]);
 }
+function renderAnHoras(){
+  const fecha = $('#anFecha').value; if (!fecha) return;
+  const horas = horasDisponiblesDia(fecha);
+  $('#anHora').innerHTML = horas.length ? horas.map(h=>`<option value="${h}">${h}</option>`).join('') : `<option value="">Cerrado ese día</option>`;
+}
+$('#agendaNuevaBtn').onclick = ()=>{
+  const box=$('#agendaNuevaBox');
+  box.classList.toggle('hidden');
+  if (!box.classList.contains('hidden')){
+    if (!$('#anFecha').value) $('#anFecha').value = new Date().toISOString().slice(0,10);
+    renderAnHoras();
+  }
+};
+$('#anFecha').onchange = renderAnHoras;
+$('#anGuardar').onclick = async ()=>{
+  const fecha=$('#anFecha').value, hora=$('#anHora').value;
+  const nombre=$('#anNombre').value.trim(), telefono=$('#anTelefono').value.trim();
+  const correo=$('#anCorreo').value.trim() || `sin-correo-${Date.now()}@premiummotorbikes.cl`;
+  if (!fecha || !hora){ toast('Elige fecha y hora','bad'); return; }
+  if (!nombre || !telefono){ toast('Completa nombre y teléfono del cliente','bad'); return; }
+  const btn=$('#anGuardar'); btn.disabled=true; btn.textContent='Agendando…';
+  const { data, error } = await db.rpc('pm_crear_cita', {
+    p_fecha: fecha, p_hora: hora, p_tipo: 'servicio',
+    p_categoria: null, p_plan_key: null,
+    p_plan_nombre: $('#anServicio').value.trim() || 'Servicio agendado por el taller',
+    p_plan_precio: parseInt($('#anPrecio').value)||0,
+    p_moto_marca: $('#anMarca').value.trim(), p_moto_modelo: $('#anModelo').value.trim(), p_moto_patente: cleanPat($('#anPatente').value),
+    p_cliente_nombre: nombre, p_cliente_rut: $('#anRut').value.trim(), p_cliente_email: correo, p_cliente_telefono: telefono,
+    p_notas: null
+  });
+  if (error){ toast(error.message||'No se pudo agendar','bad'); btn.disabled=false; btn.textContent='Agendar y asignarme esta cita'; return; }
+  const cita = (data && data[0]) || null;
+  if (cita){
+    await db.from('premium_citas').update({ estado:'tomada', tomado_por:trabajadorNombre, tomado_por_email:trabajadorEmail, tomado_at:new Date().toISOString() }).eq('id', cita.id);
+  }
+  toast('Cita agendada y asignada a ti','ok');
+  ['anServicio','anPrecio','anMarca','anModelo','anPatente','anNombre','anRut','anCorreo','anTelefono'].forEach(id=>$('#'+id).value='');
+  btn.disabled=false; btn.textContent='Agendar y asignarme esta cita';
+  abrirAgenda(); loadAgendaBadge();
+};
 function citaWaLink(c){
   const tel=(c.cliente_telefono||'').replace(/\D/g,'');
   const tel2 = tel.startsWith('56') ? tel : (tel.startsWith('9') ? '56'+tel : tel);
@@ -4068,16 +4134,8 @@ function horasDisponiblesDia(fechaStr){
   const d = new Date(fechaStr+'T00:00:00');
   const dow = d.getDay(); // 0=Dom … 6=Sáb
   if (dow===0) return [];
-  const partes = (CONFIG.taller.horario||'').split('·').map(s=>s.trim()).filter(Boolean);
-  const rango = dow===6 ? partes[3] : partes[1];
-  if (!rango) return [];
-  const m = rango.match(/(\d{1,2})[:.]?(\d{2})?\s*a\s*(\d{1,2})[:.]?(\d{2})?/i);
-  if (!m) return [];
-  const abre = parseInt(m[1]) + (m[2]?parseInt(m[2])/60:0);
-  const cierra = parseInt(m[3]) + (m[4]?parseInt(m[4])/60:0);
-  const horas=[];
-  for (let h=Math.ceil(abre); h<=Math.floor(cierra); h++) horas.push(h);
-  return horas;
+  if (dow===6) return ['10:00','11:00','12:00','13:00','14:00'];
+  return ['09:15','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
 }
 function iniciarAgenda(){
   const iso = new Date().toISOString().slice(0,10);
@@ -4103,8 +4161,7 @@ async function renderHorasCot(fechaStr){
     const { data } = await db.rpc('pm_cupos_fecha', { p_fecha: fechaStr });
     (data||[]).forEach(r=> ocupadas[r.hora] = Number(r.ocupadas));
   }catch(e){}
-  cont.innerHTML = horas.map(h=>{
-    const hStr = String(h).padStart(2,'0')+':00';
+  cont.innerHTML = horas.map(hStr=>{
     const lleno = (ocupadas[hStr]||0) >= 3;
     const on = cot.agHora===hStr;
     return `<div class="seg ${on?'on':''}" data-h="${hStr}" ${lleno?'style="opacity:.35;pointer-events:none"':''}>${hStr}${lleno?' · lleno':''}</div>`;
