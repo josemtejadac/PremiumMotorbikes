@@ -2570,7 +2570,7 @@ function computeTotal(){
 $('#f_descuento').oninput=()=>{ if(current){ current.descuento = Math.max(0, Math.min(100, parseInt($('#f_descuento').value)||0)); computeTotal(); } };
 
 /* fotos */
-const FOTO_LIMITES = { fotos_ingreso:5, fotos_proceso:10, fotos_salida:5 };
+const FOTO_LIMITES = { fotos_ingreso:5, fotos_proceso:25, fotos_salida:5 };
 function renderFotos(){
   // Si las fotos ya fueron comprimidas a PDF, mostrar link en vez de grilla editable
   if(current.fotos_comprimidas && current.fotos_pdf){
