@@ -964,6 +964,11 @@
     </div>
 
     <div class="block">
+      <h3>Fotos del proceso</h3>
+      <div class="fotogrid" id="fotosProceso"></div>
+    </div>
+
+    <div class="block">
       <h3>Fotos de salida</h3>
       <div class="fotogrid" id="fotosSalida"></div>
     </div>
@@ -2233,10 +2238,10 @@ async function openEditor(s){
     cliente_nombre:'', cliente_rut:'', cliente_telefono:'',
     moto_patente:'', moto_marca:'', moto_modelo:'', observaciones:'',
     retira_nombre:'', retira_rut:'', mostrar_nota_insumos:true, descuento:0,
-    fotos_ingreso:[], fotos_salida:[], firma_entrega:null
+    fotos_ingreso:[], fotos_proceso:[], fotos_salida:[], firma_entrega:null
   };
   // normaliza arrays
-  ['items','checklist','fotos_ingreso','fotos_salida'].forEach(k=>{ if(!Array.isArray(current[k])) current[k]=[]; });
+  ['items','checklist','fotos_ingreso','fotos_proceso','fotos_salida'].forEach(k=>{ if(!Array.isArray(current[k])) current[k]=[]; });
 
   $('#edTitle').textContent = (s&&s.id) ? (current.moto_marca||current.moto_modelo? [current.moto_marca,current.moto_modelo].filter(Boolean).join(' '):'Servicio') : 'Nuevo servicio';
   $('#edFolio').textContent = current.folio;
@@ -2565,6 +2570,7 @@ function computeTotal(){
 $('#f_descuento').oninput=()=>{ if(current){ current.descuento = Math.max(0, Math.min(100, parseInt($('#f_descuento').value)||0)); computeTotal(); } };
 
 /* fotos */
+const FOTO_LIMITES = { fotos_ingreso:5, fotos_proceso:10, fotos_salida:5 };
 function renderFotos(){
   // Si las fotos ya fueron comprimidas a PDF, mostrar link en vez de grilla editable
   if(current.fotos_comprimidas && current.fotos_pdf){
@@ -2573,28 +2579,36 @@ function renderFotos(){
       <p style="font-size:12.5px;color:var(--gris5);margin:0 0 10px">Las fotos de este servicio fueron optimizadas automáticamente después de 7 días.</p>
       <a href="${current.fotos_pdf}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;background:var(--rojo);color:var(--sobre-acento);border-radius:10px;font-weight:700;text-decoration:none">Ver fotos en PDF</a>
     </div>`;
-    $('#fotosIngreso').innerHTML=html; $('#fotosSalida').innerHTML='';
+    $('#fotosIngreso').innerHTML=html; $('#fotosProceso').innerHTML=''; $('#fotosSalida').innerHTML='';
     return;
   }
   renderFotoGrid('fotosIngreso','fotos_ingreso');
+  renderFotoGrid('fotosProceso','fotos_proceso');
   renderFotoGrid('fotosSalida','fotos_salida');
 }
 function renderFotoGrid(elId, key){
   const el=$('#'+elId);
   const fotos=current[key]||[];
+  const limite=FOTO_LIMITES[key]||5;
   el.innerHTML = fotos.map((u,i)=>`<div class="foto"><img src="${u}" data-lb="${u}"><button class="fdel" data-fd="${i}">×</button></div>`).join('')
-    + `<label class="uploadbtn"><span>＋</span>Subir<input type="file" accept="image/*" multiple hidden></label>`;
+    + (fotos.length<limite ? `<label class="uploadbtn"><span>＋</span>Subir<input type="file" accept="image/*" multiple hidden></label>` : '');
   el.querySelectorAll('img[data-lb]').forEach(im=>im.onclick=()=>openLightbox(im.dataset.lb));
   el.querySelectorAll('[data-fd]').forEach(b=>b.onclick=async()=>{
     const i=+b.dataset.fd; const url=current[key][i];
     current[key].splice(i,1); renderFotoGrid(elId,key);
     try{ const path=url.split('/premium/')[1]; if(path) await db.storage.from(CONFIG.bucket).remove([path]); }catch(e){}
   });
-  el.querySelector('input[type=file]').onchange=e=>uploadFotos(e.target.files,key,elId);
+  const inp=el.querySelector('input[type=file]');
+  if (inp) inp.onchange=e=>uploadFotos(e.target.files,key,elId);
 }
 async function uploadFotos(files,key,elId){
+  const limite=FOTO_LIMITES[key]||5;
+  const disponibles=limite-(current[key]||[]).length;
+  if (disponibles<=0){ toast('Ya alcanzaste el máximo de '+limite+' fotos en esta sección','bad'); return; }
+  const aSubir=[...files].slice(0,disponibles);
+  if (files.length>disponibles) toast('Solo se subirán '+disponibles+' foto(s), llegaste al máximo de '+limite,'bad');
   toast('Comprimiendo y subiendo fotos…');
-  for (const raw of files){
+  for (const raw of aSubir){
     try{
       const file = await comprimirImagen(raw);
       const path=`${current.folio}/${key}/${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
@@ -2655,7 +2669,7 @@ async function guardar(silent){
     moto_patente:current.moto_patente||null, moto_marca:current.moto_marca||null, moto_modelo:current.moto_modelo||null,
     kilometraje:current.kilometraje||null,
     items:current.items, checklist:current.checklist, total:current.total, descuento:Math.max(0,Math.min(100,Number(current.descuento)||0)), observaciones:current.observaciones||null,
-    fotos_ingreso:current.fotos_ingreso, fotos_salida:current.fotos_salida,
+    fotos_ingreso:current.fotos_ingreso, fotos_proceso:current.fotos_proceso, fotos_salida:current.fotos_salida,
     mostrar_nota_insumos: current.mostrar_nota_insumos !== false,
     fecha_entregado: current.fecha_entregado || null,
     editado_por: nombreConRol(),
@@ -2692,7 +2706,7 @@ $('#nuevoIngresoBtn').onclick=()=>{
     cliente_nombre:b.cliente_nombre||'', cliente_rut:b.cliente_rut||'', cliente_telefono:b.cliente_telefono||'',
     moto_patente:b.moto_patente||'', moto_marca:b.moto_marca||'', moto_modelo:b.moto_modelo||'', kilometraje:b.kilometraje||null,
     observaciones:'', retira_nombre:'', retira_rut:'', mostrar_nota_insumos:true,
-    fotos_ingreso:[], fotos_salida:[], firma_entrega:null
+    fotos_ingreso:[], fotos_proceso:[], fotos_salida:[], firma_entrega:null
   });
   toast('Nuevo ingreso — el servicio anterior queda en el historial','ok');
 };
@@ -3063,7 +3077,7 @@ function renderPublicService(s, todos){
 
     ${incluye}
     ${s.observaciones?`<div class="block"><h3>Observaciones</h3><p style="margin:0;font-size:14px;color:var(--gris9)">${esc(s.observaciones)}</p></div>`:''}
-    ${s.fotos_comprimidas && s.fotos_pdf ? fotoPdfHtml(s.fotos_pdf) : (fotoHtml(s.fotos_ingreso,'Fotos de ingreso')+fotoHtml(s.fotos_salida,'Fotos de salida'))}
+    ${s.fotos_comprimidas && s.fotos_pdf ? fotoPdfHtml(s.fotos_pdf) : (fotoHtml(s.fotos_ingreso,'Fotos de ingreso')+fotoHtml(s.fotos_proceso,'Fotos del proceso')+fotoHtml(s.fotos_salida,'Fotos de salida'))}
     ${s.firma_entrega?`<div class="block"><h3>Retiro conforme</h3>${(s.retira_nombre||s.retira_rut)?`<p style="margin:0 0 8px;font-size:14px"><b>Retirado por:</b> ${esc(s.retira_nombre||'—')}${s.retira_rut?' · RUT '+esc(s.retira_rut):''}${s.fecha_entregado?' · '+fmtFecha(s.fecha_entregado):''}</p>`:''}<img class="firma-img" src="${s.firma_entrega}"></div>`:''}
     ${retiroBloque}
 
