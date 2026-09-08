@@ -3970,7 +3970,17 @@ async function enviarComoCliente(){
   }
   msg += `\n*Total estimado: ${money(totalCot())}*\n_(valor referencial)_`;
   const tel=(CONFIG.taller.telefonoWa||'').replace(/\D/g,'');
+  const { doc, filename } = await cotizaPDF();
+  const blob = doc.output('blob');
+  const file = new File([blob], filename, {type:'application/pdf'});
+  if (navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], text:msg, title:'Cotización Premium Motorbikes'}); return; }
+    catch(e){ if (e && e.name==='AbortError') return; }
+  }
+  // Fallback escritorio: descarga el PDF y abre el chat del taller con el texto
+  doc.save(filename);
   window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`,'_blank');
+  toast('Descargué la cotización: adjúntala en el chat con el taller','ok');
 }
 // "Soy del taller": adjunta el PDF de la cotización y elige el contacto del cliente desde el celular
 async function enviarComoTaller(){
