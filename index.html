@@ -3220,12 +3220,18 @@ function renderCatChipsInsumos(){
 
 /* La vitrina "Nuestra tienda" del sitio público solo muestra estas 3 categorías
    (aunque en el panel se sigan creando más para organizar productos internamente) */
-const LANDING_CATS = ['repuestos','neumaticos','servicios'];
 const LANDING_IMG = {
-  repuestos: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/repuestos/1788190826051-aar65.jpg',
+  bujias: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/aceites_10w40/1788882041271-aazkl.jpg',
+  pastillas: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/pastillas/1788524316943-7zg6z.jpg',
+  repuestos: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/repuestos/1788190726554-xq3vf.jpg',
+  servicios: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/servicios/1788745720779-k8moj.jpg',
   neumaticos: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/neumaticos/1788231650884-qqzrc.jpg',
-  servicios: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/servicios/1788745720779-k8moj.jpg'
+  transmision: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/repuestos/1788190826051-aar65.jpg',
+  aceites_10w40: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/aceites/1788190561294-h3xsz.jpg',
+  aceites_15w50: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/aceites_15w50/1788446887800-g5ues.jpg',
+  filtros_de_aceite: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/filtros_de_aceite/1788446631636-hklxy.jpg'
 };
+const LANDING_CATS = ['bujias','pastillas','repuestos','servicios','neumaticos','transmision','aceites_10w40'];
 function renderCatLanding(){
   const el=document.querySelector('.wcircles'); if(!el) return;
   el.innerHTML = LANDING_CATS.filter(k=>CATS[k]).map(k=>{
