@@ -3232,12 +3232,14 @@ const LANDING_IMG = {
   filtros_de_aceite: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/filtros_de_aceite/1788446631636-hklxy.jpg'
 };
 const LANDING_CATS = ['bujias','pastillas','repuestos','servicios','neumaticos','transmision','aceites_10w40'];
+const LANDING_LABEL = { aceites_10w40:'Aceites' };
 function renderCatLanding(){
   const el=document.querySelector('.wcircles'); if(!el) return;
   el.innerHTML = LANDING_CATS.filter(k=>CATS[k]).map(k=>{
     const img = LANDING_IMG[k];
-    const icono = img ? `<img src="${img}" alt="${esc(CATS[k])}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : catIcono(k);
-    return `<button class="wcirc" data-cat="${k}"><span class="wcirc-i">${icono}</span><b>${esc(CATS[k])}</b><small>${esc(catDesc(k))}</small></button>`;
+    const label = LANDING_LABEL[k] || CATS[k];
+    const icono = img ? `<img src="${img}" alt="${esc(label)}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : catIcono(k);
+    return `<button class="wcirc" data-cat="${k}"><span class="wcirc-i">${icono}</span><b>${esc(label)}</b><small>${esc(catDesc(k))}</small></button>`;
   }).join('');
   el.querySelectorAll('.wcirc').forEach(b=>b.onclick=()=>irCat(b.dataset.cat));
 }
