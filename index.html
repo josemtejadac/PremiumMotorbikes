@@ -3220,12 +3220,20 @@ function renderCatChipsInsumos(){
 
 /* La vitrina "Nuestra tienda" del sitio público solo muestra estas 3 categorías
    (aunque en el panel se sigan creando más para organizar productos internamente) */
-const LANDING_CATS = ['repuestos','neumaticos','servicios'];
+const LANDING_CATS = ['repuestos','neumaticos','aceites','servicios'];
+const LANDING_IMG = {
+  repuestos: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/repuestos/1788190826051-aar65.jpg',
+  neumaticos: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/neumaticos/1788231650884-qqzrc.jpg',
+  aceites: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/aceites/1788190561294-h3xsz.jpg',
+  servicios: 'https://wiuuzsiiaagqldtxfouj.supabase.co/storage/v1/object/public/premium/tienda/servicios/1788745720779-k8moj.jpg'
+};
 function renderCatLanding(){
   const el=document.querySelector('.wcircles'); if(!el) return;
-  el.innerHTML = LANDING_CATS.filter(k=>CATS[k]).map(k=>
-    `<button class="wcirc" data-cat="${k}"><span class="wcirc-i">${catIcono(k)}</span><b>${esc(CATS[k])}</b><small>${esc(catDesc(k))}</small></button>`
-  ).join('');
+  el.innerHTML = LANDING_CATS.filter(k=>CATS[k]).map(k=>{
+    const img = LANDING_IMG[k];
+    const icono = img ? `<img src="${img}" alt="${esc(CATS[k])}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : catIcono(k);
+    return `<button class="wcirc" data-cat="${k}"><span class="wcirc-i">${icono}</span><b>${esc(CATS[k])}</b><small>${esc(catDesc(k))}</small></button>`;
+  }).join('');
   el.querySelectorAll('.wcirc').forEach(b=>b.onclick=()=>irCat(b.dataset.cat));
 }
 
