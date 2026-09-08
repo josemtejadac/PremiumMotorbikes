@@ -4316,6 +4316,7 @@ $('#cConfirmarCita').onclick = async ()=>{
     $('#cAgendaForm').classList.add('hidden');
     $('#cAgendaOk').classList.remove('hidden');
     toast('¡Hora agendada!','ok');
+    subirCitaPDF(citaActual);
   }catch(e){
     toast(e.message||'No se pudo agendar, intenta otra hora','bad');
     renderHorasCot(cot.agFecha);
@@ -4341,8 +4342,7 @@ $('#cAgendaNueva').onclick = ()=>{
   iniciarAgenda();
 };
 
-async function citaPDF(c){
-  if (!c) return;
+async function construirCitaPDFDoc(c){
   const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'});
   const W=210, M=14, RX=W-M;
   const NEGRO=[13,15,19], VERDE=[179,252,6], VERDE_TXT=[77,124,15], GRIS_CLARO=[245,246,248];
@@ -4418,7 +4418,25 @@ async function citaPDF(c){
   doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(140);
   if (CONFIG.taller.direccion) doc.text('Dirección: '+CONFIG.taller.direccion,M,y);
 
+  return doc;
+}
+async function citaPDF(c){
+  if (!c) return;
+  const doc = await construirCitaPDFDoc(c);
   doc.save(`Cita_PremiumMotorbikes_${c.folio||''}.pdf`.replace(/\s+/g,'_'));
+}
+async function subirCitaPDF(c){
+  if (!c || !c.folio) return;
+  try{
+    const doc = await construirCitaPDFDoc(c);
+    const blob = doc.output('blob');
+    const path = `citas/${c.folio}.pdf`;
+    await db.storage.from(CONFIG.bucket).upload(path, blob, {cacheControl:'3600', upsert:true, contentType:'application/pdf'});
+    const { data } = db.storage.from(CONFIG.bucket).getPublicUrl(path);
+    if (data && data.publicUrl){
+      await db.rpc('pm_guardar_pdf_cita', { p_folio: c.folio, p_url: data.publicUrl });
+    }
+  }catch(e){ /* el recordatorio simplemente no llevará PDF adjunto si esto falla */ }
 }
 
 /* ============================================================
