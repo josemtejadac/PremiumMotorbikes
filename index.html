@@ -3175,9 +3175,9 @@ let productos = [], catActual = null, tiendaAdmin = false, prodEdit = null;
 let tPagina = 1; const POR_PAGINA = 15; let tTipo = null;
 let carrito = {};   // { id: cantidad }
 
-const CAT_ICONOS = {neumaticos:'🛞',aceites:'🛢️',repuestos:'🔧',accesorios:'🧤',kit:'⚙️',filtros:'🔲',frenos:'🛑',baterias:'🔋',lubricantes:'💧'};
+const CAT_ICONOS = {neumaticos:'🛞',aceites:'🛢️',repuestos:'🔧',servicios:'🛠️',accesorios:'🧤',kit:'⚙️',filtros:'🔲',frenos:'🛑',baterias:'🔋',lubricantes:'💧'};
 function catIcono(id){ return CAT_ICONOS[id] || '📦'; }
-const CAT_DESC = {neumaticos:'Agarre, seguridad y durabilidad',aceites:'Máxima protección para tu motor',repuestos:'Calidad y rendimiento garantizado',accesorios:'Todo lo que tu moto necesita',kit:'Todo en un solo pack',filtros:'Filtración de calidad OEM',frenos:'Seguridad en cada frenada',baterias:'Arranque confiable siempre',lubricantes:'Cuidado premium para tu motor'};
+const CAT_DESC = {neumaticos:'Agarre, seguridad y durabilidad',aceites:'Máxima protección para tu motor',repuestos:'Calidad y rendimiento garantizado',servicios:'Mano de obra profesional y garantizada',accesorios:'Todo lo que tu moto necesita',kit:'Todo en un solo pack',filtros:'Filtración de calidad OEM',frenos:'Seguridad en cada frenada',baterias:'Arranque confiable siempre',lubricantes:'Cuidado premium para tu motor'};
 function catDesc(id){ return CAT_DESC[id] || 'Calidad garantizada para tu moto'; }
 
 async function cargarCategorias(){
@@ -3218,10 +3218,13 @@ function renderCatChipsInsumos(){
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{ ipCat=b.dataset.c; renderIpCats(); renderIpLista(); });
 }
 
+/* La vitrina "Nuestra tienda" del sitio público solo muestra estas 3 categorías
+   (aunque en el panel se sigan creando más para organizar productos internamente) */
+const LANDING_CATS = ['repuestos','neumaticos','servicios'];
 function renderCatLanding(){
   const el=document.querySelector('.wcircles'); if(!el) return;
-  el.innerHTML = Object.entries(CATS).map(([k,v])=>
-    `<button class="wcirc" data-cat="${k}"><span class="wcirc-i">${catIcono(k)}</span><b>${esc(v)}</b><small>${esc(catDesc(k))}</small></button>`
+  el.innerHTML = LANDING_CATS.filter(k=>CATS[k]).map(k=>
+    `<button class="wcirc" data-cat="${k}"><span class="wcirc-i">${catIcono(k)}</span><b>${esc(CATS[k])}</b><small>${esc(catDesc(k))}</small></button>`
   ).join('');
   el.querySelectorAll('.wcirc').forEach(b=>b.onclick=()=>irCat(b.dataset.cat));
 }
@@ -4188,8 +4191,16 @@ async function cotizaPDF(){
 }
 $('#cPdf').onclick=async()=>{
   toast('Generando PDF…','ok');
-  try{ const { doc, filename } = await cotizaPDF(); doc.save(filename); }
-  catch(e){ toast('No se pudo generar el PDF','bad'); }
+  try{
+    const { doc, filename } = await cotizaPDF();
+    const blob = doc.output('blob');
+    const file = new File([blob], filename, {type:'application/pdf'});
+    if (navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:'Cotización Premium Motorbikes'}); return; }
+      catch(e){ if (e && e.name==='AbortError') return; }
+    }
+    doc.save(filename);
+  }catch(e){ toast('No se pudo generar el PDF','bad'); }
 };
 
 /* ============================================================
