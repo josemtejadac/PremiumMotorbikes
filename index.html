@@ -429,7 +429,8 @@
   .tcart:hover{background:#000}
   .tadmin{background:var(--panel2);color:var(--gris9);padding:9px 11px;font-size:14px}
   .tadmin.on{background:var(--rojo);color:var(--sobre-acento)}
-  .tcats{display:flex;gap:8px;max-width:1060px;margin:0 auto;padding:0 14px 11px;overflow-x:auto;scrollbar-width:none}
+  .tcats{display:flex;gap:8px;max-width:1060px;margin:0 auto;padding:0 14px 11px;overflow-x:auto;scrollbar-width:none;cursor:grab;user-select:none}
+  .tcats.hscroll-drag{cursor:grabbing}
   .tcats::-webkit-scrollbar{display:none}
   .tcat{flex:0 0 auto;padding:6px 13px;border-radius:999px;border:1px solid var(--gris2);background:var(--panel);font-size:12.5px;font-weight:600;color:var(--gris5);white-space:nowrap}
   .tcat.on{box-shadow:0 2px 8px rgba(13,15,19,.30)}
@@ -3216,6 +3217,28 @@ function renderCatTabs(){
     el.querySelectorAll('.tcat').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); catActual=b.dataset.c; tTipo=null; tPagina=1; renderProductos();
   });
+  habilitarScrollHorizontal(el);
+}
+/* permite deslizar con la rueda del mouse y arrastrando con el clic, para PC sin trackpad */
+function habilitarScrollHorizontal(el){
+  if (!el || el.dataset.hscroll) return; el.dataset.hscroll='1';
+  el.addEventListener('wheel',e=>{
+    if (el.scrollWidth<=el.clientWidth) return;
+    if (Math.abs(e.deltaY)<=Math.abs(e.deltaX)) return;
+    e.preventDefault(); el.scrollLeft += e.deltaY;
+  },{passive:false});
+  let arrastrando=false, startX=0, startScroll=0, movido=false;
+  el.addEventListener('mousedown',e=>{
+    arrastrando=true; movido=false; startX=e.pageX; startScroll=el.scrollLeft; el.classList.add('hscroll-drag');
+  });
+  window.addEventListener('mousemove',e=>{
+    if (!arrastrando) return;
+    const dx=e.pageX-startX;
+    if (Math.abs(dx)>4) movido=true;
+    el.scrollLeft = startScroll - dx;
+  });
+  window.addEventListener('mouseup',()=>{ arrastrando=false; el.classList.remove('hscroll-drag'); });
+  el.addEventListener('click',e=>{ if (movido){ e.stopPropagation(); e.preventDefault(); movido=false; } },true);
 }
 
 function renderCatSelect(){
