@@ -4025,8 +4025,12 @@ async function enviarComoCliente(){
   const { doc, filename } = await cotizaPDF();
   const blob = doc.output('blob');
   const file = new File([blob], filename, {type:'application/pdf'});
-  if (navigator.canShare && navigator.canShare({files:[file]})){
+  if (navigator.canShare && navigator.canShare({files:[file], text:msg})){
     try{ await navigator.share({files:[file], text:msg, title:'Cotización Premium Motorbikes'}); return; }
+    catch(e){ if (e && e.name==='AbortError') return; }
+  }
+  if (navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:'Cotización Premium Motorbikes'}); return; }
     catch(e){ if (e && e.name==='AbortError') return; }
   }
   // Fallback escritorio: descarga el PDF y abre el chat del taller con el texto
@@ -4041,14 +4045,23 @@ async function enviarComoTaller(){
   const { doc, filename } = await cotizaPDF();
   const blob = doc.output('blob');
   const file = new File([blob], filename, {type:'application/pdf'});
-  if (navigator.canShare && navigator.canShare({files:[file]})){
+  // 1) Intento normal: compartir PDF + mensaje juntos, el trabajador elige el contacto en su celular
+  if (navigator.canShare && navigator.canShare({files:[file], text:txt})){
     try{ await navigator.share({files:[file], text:txt, title:'Cotización Premium Motorbikes'}); return; }
     catch(e){ if (e && e.name==='AbortError') return; }
   }
-  // Fallback escritorio: descarga el PDF y abre WhatsApp para adjuntarlo manual
+  // 2) Algunos celulares no permiten compartir archivo + texto juntos, pero sí el archivo solo
+  //    (WhatsApp igual deja escribir un mensaje al momento de enviarlo)
+  if (navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:'Cotización Premium Motorbikes'}); return; }
+    catch(e){ if (e && e.name==='AbortError') return; }
+  }
+  // 3) Fallback de escritorio: WhatsApp Web no permite adjuntar un archivo por link,
+  //    así que descargamos el PDF, copiamos el mensaje y dejamos instrucciones claras
   doc.save(filename);
-  window.open(`https://wa.me/?text=${encodeURIComponent(txt+'\n(adjunta el PDF que se acaba de descargar)')}`,'_blank');
-  toast('Descargué la cotización: adjúntala en el chat','ok');
+  try{ await navigator.clipboard.writeText(txt); }catch(e){}
+  window.open('https://web.whatsapp.com/','_blank');
+  alert('Se descargó el PDF de la cotización y copiamos el mensaje al portapapeles.\n\nEn WhatsApp Web: abre el chat del cliente, pega el mensaje (Ctrl+V) y adjunta el PDF descargado (📎).\n\nDesde el celular esto se hace automático: PDF y mensaje se envían juntos al elegir el contacto.');
 }
 $('#cEnviar').onclick = async ()=>{
   const btn=$('#cEnviar'); const orig=btn.innerHTML;
