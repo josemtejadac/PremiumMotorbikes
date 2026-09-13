@@ -1244,6 +1244,10 @@
         <div class="seg on" data-q="cliente">Soy cliente</div>
         <div class="seg" data-q="taller">Soy del taller</div>
       </div>
+      <div id="cTelClienteWrap" class="hidden" style="margin-top:10px">
+        <label style="display:block;margin-bottom:4px;font-size:12.5px;color:var(--gris5)">WhatsApp del cliente</label>
+        <input id="cTelCliente" placeholder="Ej: 912345678" inputmode="tel" autocomplete="off">
+      </div>
       <button class="btn-wa" id="cEnviar" style="width:100%;margin-top:10px;padding:15px;font-size:15px">🟢 Enviar cotización por WhatsApp</button>
       <button class="btn-pdf" id="cPdf" style="width:100%;margin-top:10px;padding:13px">📄 Descargar cotización en PDF</button>
       <button class="btn-ghost" id="cReiniciar" style="width:100%;margin-top:10px;padding:12px">Cotizar otra moto</button>
@@ -1277,7 +1281,16 @@
         <h3 class="ctit">¡Hora agendada! 🎉</h3>
         <div class="block" id="cAgendaResumen"></div>
         <p class="csub" id="cAgendaFolio"></p>
-        <button class="btn-wa" id="cAgendaWa" style="width:100%;padding:15px;font-size:15px">🟢 Enviar por WhatsApp</button>
+        <label style="display:block;margin:14px 0 6px;font-size:12.5px;color:var(--gris5)">¿Quién envía la confirmación?</label>
+        <div class="segbtns" id="cAgQuienEnvia">
+          <div class="seg on" data-q="cliente">Soy cliente</div>
+          <div class="seg" data-q="taller">Soy del taller</div>
+        </div>
+        <div id="cAgTelClienteWrap" class="hidden" style="margin-top:10px">
+          <label style="display:block;margin-bottom:4px;font-size:12.5px;color:var(--gris5)">WhatsApp del cliente</label>
+          <input id="cAgTelCliente" placeholder="Ej: 912345678" inputmode="tel" autocomplete="off">
+        </div>
+        <button class="btn-wa" id="cAgendaWa" style="width:100%;margin-top:10px;padding:15px;font-size:15px">🟢 Enviar por WhatsApp</button>
         <button class="btn-pdf" id="cAgendaPdf" style="width:100%;margin-top:10px;padding:13px">📄 Descargar PDF</button>
         <button class="btn-ghost" id="cAgendaNueva" style="width:100%;margin-top:10px;padding:12px">Agendar otra hora</button>
       </div>
@@ -3995,6 +4008,7 @@ $$('#cQuienEnvia .seg').forEach(b=>b.onclick=()=>{
   cotQuien=b.dataset.q;
   $$('#cQuienEnvia .seg').forEach(x=>x.classList.toggle('on', x===b));
   $('#cEnviar').innerHTML = cotQuien==='taller' ? '🟢 Enviar cotización al cliente' : '🟢 Enviar cotización por WhatsApp';
+  $('#cTelClienteWrap').classList.toggle('hidden', cotQuien!=='taller');
 });
 // "Soy cliente": manda el detalle de la cotización al WhatsApp del taller (aviso de lead)
 async function enviarComoCliente(){
@@ -4038,30 +4052,36 @@ async function enviarComoCliente(){
   window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`,'_blank');
   toast('Descargué la cotización: adjúntala en el chat con el taller','ok');
 }
-// "Soy del taller": adjunta el PDF de la cotización y elige el contacto del cliente desde el celular
+function normTelWa(t){
+  const tel = (t||'').replace(/\D/g,'');
+  if (!tel) return null;
+  return tel.length<=9 ? '56'+tel.replace(/^0+/,'') : tel; // asume Chile si no trae código de país
+}
+// "Soy del taller": envía el PDF de la cotización directo al número de WhatsApp del cliente
 async function enviarComoTaller(){
+  const telRaw = $('#cTelCliente').value;
+  const telWa = normTelWa(telRaw);
+  if (!telWa || telRaw.replace(/\D/g,'').length<8){ toast('Escribe el WhatsApp del cliente','bad'); $('#cTelCliente').focus(); return; }
   const nom = cot.agNombre ? cot.agNombre.split(' ')[0]+', ' : '';
   const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe adjuntamos la cotización de tu mantención.`;
   const { doc, filename } = await cotizaPDF();
   const blob = doc.output('blob');
   const file = new File([blob], filename, {type:'application/pdf'});
-  // 1) Intento normal: compartir PDF + mensaje juntos, el trabajador elige el contacto en su celular
+  // 1) Intento normal: compartir el PDF (con el número ya visible, el trabajador confirma el mismo contacto en su celular)
   if (navigator.canShare && navigator.canShare({files:[file], text:txt})){
     try{ await navigator.share({files:[file], text:txt, title:'Cotización Premium Motorbikes'}); return; }
     catch(e){ if (e && e.name==='AbortError') return; }
   }
-  // 2) Algunos celulares no permiten compartir archivo + texto juntos, pero sí el archivo solo
-  //    (WhatsApp igual deja escribir un mensaje al momento de enviarlo)
   if (navigator.canShare && navigator.canShare({files:[file]})){
     try{ await navigator.share({files:[file], title:'Cotización Premium Motorbikes'}); return; }
     catch(e){ if (e && e.name==='AbortError') return; }
   }
-  // 3) Fallback de escritorio: WhatsApp Web no permite adjuntar un archivo por link,
-  //    así que descargamos el PDF, copiamos el mensaje y dejamos instrucciones claras
+  // 2) Sin soporte para compartir archivos (ej. computador): ningún navegador permite adjuntar
+  //    un archivo a WhatsApp automáticamente por enlace, así que abrimos el chat exacto de ese
+  //    número con el mensaje ya escrito, descargamos el PDF y avisamos que hay que adjuntarlo a mano.
   doc.save(filename);
-  try{ await navigator.clipboard.writeText(txt); }catch(e){}
-  window.open('https://web.whatsapp.com/','_blank');
-  alert('Se descargó el PDF de la cotización y copiamos el mensaje al portapapeles.\n\nEn WhatsApp Web: abre el chat del cliente, pega el mensaje (Ctrl+V) y adjunta el PDF descargado (📎).\n\nDesde el celular esto se hace automático: PDF y mensaje se envían juntos al elegir el contacto.');
+  window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
+  alert('Se abrió el chat de WhatsApp de ese número con el mensaje listo, y se descargó el PDF de la cotización.\n\nSolo falta adjuntar el PDF descargado en ese chat (📎) — los navegadores de PC no permiten hacerlo automático.\n\nDesde el celular esto se hace en un solo paso.');
 }
 $('#cEnviar').onclick = async ()=>{
   const btn=$('#cEnviar'); const orig=btn.innerHTML;
@@ -4365,6 +4385,9 @@ $('#cConfirmarCita').onclick = async ()=>{
       <div class="cfila"><span>Cliente</span><span>${esc(nombre)}</span></div>`;
     $('#cAgendaForm').classList.add('hidden');
     $('#cAgendaOk').classList.remove('hidden');
+    citaQuien='cliente'; $('#cAgTelCliente').value='';
+    $$('#cAgQuienEnvia .seg').forEach(x=>x.classList.toggle('on', x.dataset.q==='cliente'));
+    $('#cAgTelClienteWrap').classList.add('hidden');
     toast('¡Hora agendada!','ok');
     subirCitaPDF(citaActual);
   }catch(e){
@@ -4373,7 +4396,15 @@ $('#cConfirmarCita').onclick = async ()=>{
   }
   btn.disabled=false; btn.textContent='Confirmar hora';
 };
-$('#cAgendaWa').onclick = ()=>{
+let citaQuien='cliente';
+$$('#cAgQuienEnvia .seg').forEach(b=>b.onclick=()=>{
+  citaQuien=b.dataset.q;
+  $$('#cAgQuienEnvia .seg').forEach(x=>x.classList.toggle('on', x===b));
+  $('#cAgTelClienteWrap').classList.toggle('hidden', citaQuien!=='taller');
+  if (citaQuien==='taller' && citaActual && !$('#cAgTelCliente').value) $('#cAgTelCliente').value = citaActual.telefono||'';
+});
+// "Soy cliente": avisa al taller que se agendó una hora (mismo comportamiento de siempre)
+function enviarAgendaComoCliente(){
   if (!citaActual) return;
   const servicioTxt = citaActual.tipoServ==='servicio' && citaActual.servicio ? citaActual.servicio.nombre : (PLAN_META[citaActual.plan]||{}).nombre || '—';
   let msg = `Hola *Premium Motorbikes* 🏍️\nAgendé una hora:\n\n`;
@@ -4384,6 +4415,36 @@ $('#cAgendaWa').onclick = ()=>{
   msg += `*Cliente:* ${citaActual.nombre} · ${citaActual.telefono}`;
   const tel=(CONFIG.taller.telefonoWa||'').replace(/\D/g,'');
   window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+// "Soy del taller": para cuando un mecánico agenda manualmente por el cliente — manda el PDF de la cita directo al WhatsApp del cliente
+async function enviarAgendaComoTaller(){
+  if (!citaActual) return;
+  const telWa = normTelWa($('#cAgTelCliente').value);
+  if (!telWa || $('#cAgTelCliente').value.replace(/\D/g,'').length<8){ toast('Escribe el WhatsApp del cliente','bad'); $('#cAgTelCliente').focus(); return; }
+  const nom = citaActual.nombre ? citaActual.nombre.split(' ')[0]+', ' : '';
+  const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.`;
+  const doc = await construirCitaPDFDoc(citaActual);
+  const filename = `Cita_PremiumMotorbikes_${citaActual.folio||''}.pdf`.replace(/\s+/g,'_');
+  const blob = doc.output('blob');
+  const file = new File([blob], filename, {type:'application/pdf'});
+  if (navigator.canShare && navigator.canShare({files:[file], text:txt})){
+    try{ await navigator.share({files:[file], text:txt, title:'Confirmación de hora Premium Motorbikes'}); return; }
+    catch(e){ if (e && e.name==='AbortError') return; }
+  }
+  if (navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:'Confirmación de hora Premium Motorbikes'}); return; }
+    catch(e){ if (e && e.name==='AbortError') return; }
+  }
+  doc.save(filename);
+  window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
+  alert('Se abrió el chat de WhatsApp de ese número con el mensaje listo, y se descargó el PDF de la cita.\n\nSolo falta adjuntar el PDF descargado en ese chat (📎) — los navegadores de PC no permiten hacerlo automático.\n\nDesde el celular esto se hace en un solo paso.');
+}
+$('#cAgendaWa').onclick = async ()=>{
+  const btn=$('#cAgendaWa'); const orig=btn.innerHTML;
+  btn.disabled=true; btn.textContent='Un momento…';
+  try{ await (citaQuien==='taller' ? enviarAgendaComoTaller() : enviarAgendaComoCliente()); }
+  catch(e){ toast('No se pudo generar el PDF','bad'); }
+  btn.disabled=false; btn.innerHTML=orig;
 };
 $('#cAgendaPdf').onclick = async ()=>{ toast('Generando PDF…','ok'); try{ await citaPDF(citaActual); }catch(e){ toast('No se pudo generar el PDF','bad'); } };
 $('#cAgendaNueva').onclick = ()=>{
