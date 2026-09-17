@@ -2265,6 +2265,8 @@ async function openEditor(s){
   };
   // normaliza arrays
   ['items','checklist','fotos_ingreso','fotos_proceso','fotos_salida'].forEach(k=>{ if(!Array.isArray(current[k])) current[k]=[]; });
+  // guarda una "foto" de cómo llegó el registro, para poder fusionar cambios de otra persona al guardar
+  current._orig = JSON.parse(JSON.stringify(current));
 
   $('#edTitle').textContent = (s&&s.id) ? (current.moto_marca||current.moto_modelo? [current.moto_marca,current.moto_modelo].filter(Boolean).join(' '):'Servicio') : 'Nuevo servicio';
   $('#edFolio').textContent = current.folio;
@@ -2688,8 +2690,40 @@ function pullForm(){
   if (current.estado==='entregado' && !current.fecha_entregado) current.fecha_entregado=new Date().toISOString();
   computeTotal();
 }
+// combina lo que hay en la base de datos ahora mismo con los cambios locales, para no
+// pisar lo que otra persona haya guardado en el rato en que este servicio estuvo abierto acá
+async function fusionarConUltimoGuardado(){
+  if (!current.id) return;
+  const base = current._orig || {};
+  let fresh;
+  try{
+    const { data, error } = await db.from('premium_servicios').select('*').eq('id',current.id).single();
+    if (error || !data) return;
+    fresh = data;
+  }catch(e){ return; }
+
+  // campos "de un solo valor": si esta sesión no los tocó, se respeta lo último guardado por otra persona
+  const camposSimples = ['estado','estado_motivo','categoria','plan_key','plan_nombre',
+    'cliente_nombre','cliente_rut','cliente_telefono','moto_patente','moto_marca','moto_modelo',
+    'kilometraje','total','descuento','observaciones','mostrar_nota_insumos','fecha_entregado','items','checklist'];
+  camposSimples.forEach(k=>{
+    const sinCambioLocal = JSON.stringify(current[k]===undefined?null:current[k]) === JSON.stringify(base[k]===undefined?null:base[k]);
+    if (sinCambioLocal && fresh[k]!==undefined) current[k]=fresh[k];
+  });
+
+  // fotos: son aditivas por naturaleza — se combinan las que agregó cada quien y se respetan los borrados propios
+  ['fotos_ingreso','fotos_proceso','fotos_salida'].forEach(k=>{
+    const orig = base[k]||[], local = current[k]||[], freshArr = fresh[k]||[];
+    const eliminadasPorMi = orig.filter(u=>!local.includes(u));
+    const agregadasPorMi = local.filter(u=>!orig.includes(u));
+    const finalArr = freshArr.filter(u=>!eliminadasPorMi.includes(u));
+    agregadasPorMi.forEach(u=>{ if(!finalArr.includes(u)) finalArr.push(u); });
+    current[k]=finalArr;
+  });
+}
 async function guardar(silent){
   pullForm();
+  await fusionarConUltimoGuardado();
   const payload={
     folio:current.folio, estado:current.estado, categoria:current.categoria,
     estado_motivo: current.estado==='en_pausa' ? (current.estado_motivo||null) : null,
@@ -2713,6 +2747,8 @@ async function guardar(silent){
   else { res=await db.from('premium_servicios').insert(payload).select().single(); }
   if (res.error){ toast('Error al guardar: '+res.error.message,'bad'); return false; }
   current.id=res.data.id;
+  const orig=JSON.parse(JSON.stringify(current)); delete orig._orig; current._orig=orig;
+  renderFotos();
   if (!silent) toast('Servicio guardado','ok');
   await loadServicios();
   return true;
