@@ -865,6 +865,10 @@
     <div class="block">
       <h3>Estado del servicio</h3>
       <p class="autorline" id="edAutorLine"></p>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 10px">
+        <span id="edTomado" style="font-size:13.5px;color:var(--gris9)"></span>
+        <button type="button" id="edTomarBtn" class="hidden" style="padding:7px 14px;border-radius:999px;background:var(--lima);color:#0b0d10;font-weight:700;font-size:13px">Tomar este servicio</button>
+      </div>
       <div class="estados" id="estadoBtns">
         <div class="est recibido on" data-e="recibido">📥 Recibido</div>
         <div class="est en_proceso" data-e="en_proceso">🔧 En proceso</div>
@@ -1336,7 +1340,7 @@
   </section>
 
   <!-- CATEGORÍAS / TIENDA -->
-  <section class="wsec" style="text-align:center">
+  <section class="wsec" style="text-align:center;margin-top:26px;border-radius:26px;background:radial-gradient(ellipse at 50% 0%,rgba(179,252,6,.16),transparent 62%),linear-gradient(180deg,#14181e,#0b0d10);border:1px solid rgba(179,252,6,.14);box-shadow:0 18px 50px rgba(0,0,0,.45)">
     <span class="wbadge">Nuestra tienda</span>
     <h2 class="wsec-t" style="color:#fff!important;font-size:30px;line-height:1.15;margin-top:14px">Todo para tu motocicleta<br>en un solo lugar</h2>
     <p class="wsec-s">Repuestos, lubricantes y neumáticos de las mejores marcas, al mejor precio.</p>
@@ -1471,7 +1475,7 @@
         <div><label>Correo</label><input id="anCorreo" type="email" placeholder="Opcional"></div>
         <div><label>Teléfono</label><input id="anTelefono" placeholder="+56 9…"></div>
       </div>
-      <button class="btn-save" id="anGuardar" style="width:100%;margin-top:12px;padding:12px">Agendar y asignarme esta cita</button>
+      <button class="btn-save" id="anGuardar" style="width:100%;margin-top:12px;padding:12px">Agendar cita</button>
     </div>
     <div id="agendaLista" style="margin:14px 0;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>
     <div class="modalact">
@@ -1877,7 +1881,7 @@ function renderList(){
         <span class="tot">${money(s.total)}</span>
       </div>
       ${(s.estado==='en_pausa'&&s.estado_motivo)?`<div class="autor" style="color:#6d28d9;font-weight:600">⏸️ ${esc(s.estado_motivo)}</div>`:''}
-      ${s.creado_por?`<div class="autor">Ingresada por ${esc(s.creado_por)}</div>`:''}
+      ${s.creado_por?`<div class="autor">Ingresada por ${esc(s.creado_por)}${s.tomado_por?` · Realizando: <b>${esc(s.tomado_por)}</b>`:' · Sin tomar'}</div>`:''}
       </div>`;
   }).join('');
   $$('.scard').forEach(c=>c.onclick=()=>openEditor(servicios.find(s=>s.id===c.dataset.id)));
@@ -1975,14 +1979,10 @@ $('#anGuardar').onclick = async ()=>{
     p_cliente_nombre: nombre, p_cliente_rut: $('#anRut').value.trim(), p_cliente_email: correo, p_cliente_telefono: telefono,
     p_notas: null
   });
-  if (error){ toast(error.message||'No se pudo agendar','bad'); btn.disabled=false; btn.textContent='Agendar y asignarme esta cita'; return; }
-  const cita = (data && data[0]) || null;
-  if (cita){
-    await db.from('premium_citas').update({ estado:'tomada', tomado_por:trabajadorNombre, tomado_por_email:trabajadorEmail, tomado_at:new Date().toISOString() }).eq('id', cita.id);
-  }
-  toast('Cita agendada y asignada a ti','ok');
+  if (error){ toast(error.message||'No se pudo agendar','bad'); btn.disabled=false; btn.textContent='Agendar cita'; return; }
+  toast('Cita agendada, queda disponible para tomar','ok');
   ['anServicio','anPrecio','anMarca','anModelo','anPatente','anNombre','anRut','anCorreo','anTelefono'].forEach(id=>$('#'+id).value='');
-  btn.disabled=false; btn.textContent='Agendar y asignarme esta cita';
+  btn.disabled=false; btn.textContent='Agendar cita';
   abrirAgenda(); loadAgendaBadge();
 };
 function citaWaLink(c){
@@ -2017,7 +2017,7 @@ function renderAgendaLista(citas){
           <div><label style="font-size:11px">Nueva fecha</label><input type="date" data-editfecha="${c.id}" value="${c.fecha}"></div>
           <div><label style="font-size:11px">Nueva hora</label>
             <select data-edithora="${c.id}" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--gris2)">
-              ${['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'].map(h=>`<option value="${h}" ${h===c.hora?'selected':''}>${h}</option>`).join('')}
+              ${franjasHora(false).map(h=>`<option value="${h}" ${h===c.hora?'selected':''}>${h}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -2208,35 +2208,27 @@ $('#twSave').onclick = async ()=>{
 
   const btn = $('#twSave'); btn.disabled=true; btn.textContent='Creando…';
 
-  // Crear usuario en Supabase Auth
-  const { data: signData, error: signErr } = await db.auth.signUp({
+  // Primero la fila en premium_trabajadores (con la sesión del admin, que tiene permiso)
+  const { error: insErr } = await db.from('premium_trabajadores')
+    .upsert({ email, rut: rutRaw, nombre, rol, cargo }, { onConflict:'email' });
+  if (insErr){ btn.disabled=false; btn.textContent='Crear trabajador'; err.textContent='Error al guardar: '+insErr.message; err.classList.remove('hidden'); return; }
+
+  // Luego la cuenta de login (signUp cambia la sesión al nuevo usuario)
+  const { error: signErr } = await db.auth.signUp({
     email: email,
     password: clave,
     options: { data: { nombre: nombre, cargo: cargo } }
   });
 
-  if (signErr){
-    btn.disabled=false; btn.textContent='Crear trabajador';
-    if (signErr.message.includes('already')){
-      err.textContent='Ya existe un usuario con ese RUT'; err.classList.remove('hidden'); return;
-    }
-    err.textContent='Error: '+signErr.message; err.classList.remove('hidden'); return;
-  }
-
-  // Insertar en premium_trabajadores
-  const { error: insErr } = await db.from('premium_trabajadores')
-    .upsert({ email, rut: rutRaw, nombre, rol, cargo }, { onConflict:'email' });
-
   btn.disabled=false; btn.textContent='Crear trabajador';
-  if (insErr){ err.textContent='Error al guardar: '+insErr.message; err.classList.remove('hidden'); return; }
+  const adminPass = sessionStorage.getItem('pm_admin_pass');
+  if (adminPass) await db.auth.signInWithPassword({ email: trabajadorEmail, password: adminPass });
+
+  if (signErr && !signErr.message.includes('already')){ err.textContent='Error: '+signErr.message; err.classList.remove('hidden'); await renderEquipo(); return; }
 
   $('#twNombre').value=''; $('#twRut').value=''; $('#twCargo').value=''; $('#twRol').value='trabajador';
   $('#trabAdd').removeAttribute('open');
   toast(nombre+' agregado al equipo','ok');
-
-  // Re-logear como admin (signUp cambió la sesión)
-  const adminPass = sessionStorage.getItem('pm_admin_pass');
-  if (adminPass) await db.auth.signInWithPassword({ email: trabajadorEmail, password: adminPass });
   await renderEquipo();
 };
 
@@ -2254,6 +2246,14 @@ function nuevoFolio(){
   const r=Array.from({length:3},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]).join('');
   return `MM-${y}${m}${day}-${r}`;
 }
+
+function pintarTomado(){
+  const t=$('#edTomado'), b=$('#edTomarBtn'); if(!t||!b) return;
+  t.innerHTML = current.tomado_por ? `🔧 Realizando: <b>${esc(current.tomado_por)}</b>` : 'Nadie lo está realizando todavía';
+  b.classList.toggle('hidden', current.tomado_por===trabajadorNombre);
+  b.textContent = current.tomado_por ? 'Tomar yo' : 'Tomar este servicio';
+}
+$('#edTomarBtn').onclick = ()=>{ current.tomado_por = trabajadorNombre; pintarTomado(); autoguardar(true); toast('Quedó asignado a ti','ok'); };
 
 async function openEditor(s){
   current = s ? JSON.parse(JSON.stringify(s)) : {
@@ -2275,6 +2275,7 @@ async function openEditor(s){
   const txtAutor = current.creado_por ? ('Ingresada por '+current.creado_por) : ('Ingresa: '+trabajadorNombre);
   if (ea) ea.textContent = txtAutor;
   const eal=$('#edAutorLine'); if (eal) eal.textContent = txtAutor + (current.editado_por && current.creado_por && current.editado_por!==current.creado_por ? (' · última edición: '+current.editado_por) : '');
+  pintarTomado();
   $('#delBtn').classList.toggle('hidden', !(s&&s.id));
   $('#nuevoIngresoBtn').classList.toggle('hidden', !(s&&s.id));
 
@@ -2706,7 +2707,7 @@ async function fusionarConUltimoGuardado(){
   // campos "de un solo valor": si esta sesión no los tocó, se respeta lo último guardado por otra persona
   const camposSimples = ['estado','estado_motivo','categoria','plan_key','plan_nombre',
     'cliente_nombre','cliente_rut','cliente_telefono','moto_patente','moto_marca','moto_modelo',
-    'kilometraje','total','descuento','observaciones','mostrar_nota_insumos','fecha_entregado','items','checklist'];
+    'kilometraje','total','descuento','observaciones','mostrar_nota_insumos','fecha_entregado','items','checklist','tomado_por'];
   camposSimples.forEach(k=>{
     const sinCambioLocal = JSON.stringify(current[k]===undefined?null:current[k]) === JSON.stringify(base[k]===undefined?null:base[k]);
     if (sinCambioLocal && fresh[k]!==undefined) current[k]=fresh[k];
@@ -2737,6 +2738,7 @@ async function guardar(silent){
     mostrar_nota_insumos: current.mostrar_nota_insumos !== false,
     fecha_entregado: current.fecha_entregado || null,
     editado_por: nombreConRol(),
+    tomado_por: current.tomado_por || null,
     updated_at:new Date().toISOString()
   };
   if (!current.id){
@@ -4343,12 +4345,16 @@ function fechaBonita(fechaStr){
   if (!fechaStr) return '—';
   return new Date(fechaStr+'T00:00:00').toLocaleDateString('es-CL',{weekday:'short',day:'2-digit',month:'short'});
 }
+function franjasHora(sabado){
+  const fin = sabado ? 14*60 : 18*60, out = [];
+  for (let m=9*60; m<=fin; m+=30) out.push(String(Math.floor(m/60)).padStart(2,'0')+':'+(m%60?'30':'00'));
+  return out;
+}
 function horasDisponiblesDia(fechaStr){
   const d = new Date(fechaStr+'T00:00:00');
   const dow = d.getDay(); // 0=Dom … 6=Sáb
   if (dow===0) return [];
-  if (dow===6) return ['10:00','11:00','12:00','13:00','14:00'];
-  return ['09:15','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+  return franjasHora(dow===6);
 }
 function iniciarAgenda(){
   const iso = new Date().toISOString().slice(0,10);
