@@ -1340,7 +1340,7 @@
   </section>
 
   <!-- CATEGORÍAS / TIENDA -->
-  <section class="wsec" style="text-align:center;margin-top:26px;border-radius:26px;background:radial-gradient(ellipse at 50% 0%,rgba(179,252,6,.16),transparent 62%),linear-gradient(180deg,#14181e,#0b0d10);border:1px solid rgba(179,252,6,.14);box-shadow:0 18px 50px rgba(0,0,0,.45)">
+  <section class="wsec" style="text-align:center;margin-top:26px;border-radius:26px;background:radial-gradient(ellipse at 50% 0%,rgba(179,252,6,.22),transparent 60%),linear-gradient(180deg,rgba(11,13,16,.55),rgba(11,13,16,.88)),url('./fotos/fondo.jpg') center/cover no-repeat;border:1px solid rgba(179,252,6,.25);box-shadow:0 18px 50px rgba(0,0,0,.45)">
     <span class="wbadge">Nuestra tienda</span>
     <h2 class="wsec-t" style="color:#fff!important;font-size:30px;line-height:1.15;margin-top:14px">Todo para tu motocicleta<br>en un solo lugar</h2>
     <p class="wsec-s">Repuestos, lubricantes y neumáticos de las mejores marcas, al mejor precio.</p>
@@ -2484,6 +2484,9 @@ function setEstadoUI(e){
   renderPausaUI();
 }
 $$('#estadoBtns .est').forEach(b=>b.onclick=()=>{
+  if (['lista_retiro','entregado'].includes(b.dataset.e) && !cleanPat($('#f_patente').value)){
+    toast('Escribe la patente de la moto antes de cambiar a este estado','bad'); return;
+  }
   if (b.dataset.e==='entregado' && !current.firma_entrega){
     if (!confirm('El cliente no ha firmado el retiro desde el portal.\n\n¿Marcar la motocicleta como entregada igualmente? Quedará registrada como entrega hecha por el taller, sin firma.')) return;
     current.entrega_manual = true;
@@ -2680,7 +2683,7 @@ function renderFirma(){
    GUARDAR / ELIMINAR
    ============================================================ */
 function pullForm(){
-  current.moto_patente=cleanPat($('#f_patente').value);
+  current.moto_patente=(p=>['NULL','NONE','UNDEFINED'].includes(p)?'':p)(cleanPat($('#f_patente').value));
   current.moto_marca=$('#f_marca').value.trim();
   current.moto_modelo=$('#f_modelo').value.trim();
   current.kilometraje=parseInt($('#f_km').value)||null;
