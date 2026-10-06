@@ -2725,6 +2725,7 @@ async function fusionarConUltimoGuardado(){
 }
 async function guardar(silent){
   pullForm();
+  if (!silent && !current.moto_patente){ toast('Escribe la patente de la moto antes de guardar','bad'); return false; }
   await fusionarConUltimoGuardado();
   const payload={
     folio:current.folio, estado:current.estado, categoria:current.categoria,
