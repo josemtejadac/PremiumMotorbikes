@@ -868,6 +868,7 @@
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 10px">
         <span id="edTomado" style="font-size:13.5px;color:var(--gris9)"></span>
         <button type="button" id="edTomarBtn" class="hidden" style="padding:7px 14px;border-radius:999px;background:var(--lima);color:#0b0d10;font-weight:700;font-size:13px">Tomar este servicio</button>
+        <button type="button" id="edSoltarBtn" class="hidden" style="padding:7px 14px;border-radius:999px;background:var(--panel2);color:var(--gris9);font-weight:700;font-size:13px;border:1px solid var(--gris2)">Soltar</button>
       </div>
       <div class="estados" id="estadoBtns">
         <div class="est recibido on" data-e="recibido">📥 Recibido</div>
@@ -2248,12 +2249,14 @@ function nuevoFolio(){
 }
 
 function pintarTomado(){
-  const t=$('#edTomado'), b=$('#edTomarBtn'); if(!t||!b) return;
+  const t=$('#edTomado'), b=$('#edTomarBtn'), s=$('#edSoltarBtn'); if(!t||!b||!s) return;
   t.innerHTML = current.tomado_por ? `🔧 Realizando: <b>${esc(current.tomado_por)}</b>` : 'Nadie lo está realizando todavía';
   b.classList.toggle('hidden', current.tomado_por===trabajadorNombre);
   b.textContent = current.tomado_por ? 'Tomar yo' : 'Tomar este servicio';
+  s.classList.toggle('hidden', !current.tomado_por);
 }
 $('#edTomarBtn').onclick = ()=>{ current.tomado_por = trabajadorNombre; pintarTomado(); autoguardar(true); toast('Quedó asignado a ti','ok'); };
+$('#edSoltarBtn').onclick = ()=>{ current.tomado_por = null; pintarTomado(); autoguardar(true); toast('Queda disponible para que otro lo tome','ok'); };
 
 async function openEditor(s){
   current = s ? JSON.parse(JSON.stringify(s)) : {
@@ -4100,7 +4103,7 @@ function normTelWa(t){
   if (!tel) return null;
   return tel.length<=9 ? '56'+tel.replace(/^0+/,'') : tel; // asume Chile si no trae código de país
 }
-// "Soy del taller": envía el PDF de la cotización directo al número de WhatsApp del cliente
+// "Soy del taller": abre directo el chat de WhatsApp de ese número con el mensaje listo
 async function enviarComoTaller(){
   const telRaw = $('#cTelCliente').value;
   const telWa = normTelWa(telRaw);
@@ -4108,23 +4111,12 @@ async function enviarComoTaller(){
   const nom = cot.agNombre ? cot.agNombre.split(' ')[0]+', ' : '';
   const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe adjuntamos la cotización de tu mantención.`;
   const { doc, filename } = await cotizaPDF();
-  const blob = doc.output('blob');
-  const file = new File([blob], filename, {type:'application/pdf'});
-  // 1) Intento normal: compartir el PDF (con el número ya visible, el trabajador confirma el mismo contacto en su celular)
-  if (navigator.canShare && navigator.canShare({files:[file], text:txt})){
-    try{ await navigator.share({files:[file], text:txt, title:'Cotización Premium Motorbikes'}); return; }
-    catch(e){ if (e && e.name==='AbortError') return; }
-  }
-  if (navigator.canShare && navigator.canShare({files:[file]})){
-    try{ await navigator.share({files:[file], title:'Cotización Premium Motorbikes'}); return; }
-    catch(e){ if (e && e.name==='AbortError') return; }
-  }
-  // 2) Sin soporte para compartir archivos (ej. computador): ningún navegador permite adjuntar
-  //    un archivo a WhatsApp automáticamente por enlace, así que abrimos el chat exacto de ese
-  //    número con el mensaje ya escrito, descargamos el PDF y avisamos que hay que adjuntarlo a mano.
+  // Ningún navegador permite adjuntar un archivo a un chat de WhatsApp específico por enlace
+  // (ni en celular ni en PC), así que abrimos directo ESE chat con el mensaje listo y
+  // descargamos el PDF para adjuntarlo ahí mismo con el botón 📎.
   doc.save(filename);
   window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
-  alert('Se abrió el chat de WhatsApp de ese número con el mensaje listo, y se descargó el PDF de la cotización.\n\nSolo falta adjuntar el PDF descargado en ese chat (📎) — los navegadores de PC no permiten hacerlo automático.\n\nDesde el celular esto se hace en un solo paso.');
+  toast('Se abrió el chat del cliente y se descargó el PDF: adjúntalo ahí con 📎','ok');
 }
 $('#cEnviar').onclick = async ()=>{
   const btn=$('#cEnviar'); const orig=btn.innerHTML;
@@ -4472,19 +4464,9 @@ async function enviarAgendaComoTaller(){
   const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.`;
   const doc = await construirCitaPDFDoc(citaActual);
   const filename = `Cita_PremiumMotorbikes_${citaActual.folio||''}.pdf`.replace(/\s+/g,'_');
-  const blob = doc.output('blob');
-  const file = new File([blob], filename, {type:'application/pdf'});
-  if (navigator.canShare && navigator.canShare({files:[file], text:txt})){
-    try{ await navigator.share({files:[file], text:txt, title:'Confirmación de hora Premium Motorbikes'}); return; }
-    catch(e){ if (e && e.name==='AbortError') return; }
-  }
-  if (navigator.canShare && navigator.canShare({files:[file]})){
-    try{ await navigator.share({files:[file], title:'Confirmación de hora Premium Motorbikes'}); return; }
-    catch(e){ if (e && e.name==='AbortError') return; }
-  }
   doc.save(filename);
   window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
-  alert('Se abrió el chat de WhatsApp de ese número con el mensaje listo, y se descargó el PDF de la cita.\n\nSolo falta adjuntar el PDF descargado en ese chat (📎) — los navegadores de PC no permiten hacerlo automático.\n\nDesde el celular esto se hace en un solo paso.');
+  toast('Se abrió el chat del cliente y se descargó el PDF: adjúntalo ahí con 📎','ok');
 }
 $('#cAgendaWa').onclick = async ()=>{
   const btn=$('#cAgendaWa'); const orig=btn.innerHTML;
