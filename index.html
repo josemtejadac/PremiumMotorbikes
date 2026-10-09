@@ -1986,11 +1986,25 @@ $('#anGuardar').onclick = async ()=>{
   btn.disabled=false; btn.textContent='Agendar cita';
   abrirAgenda(); loadAgendaBadge();
 };
-function citaWaLink(c){
-  const tel=(c.cliente_telefono||'').replace(/\D/g,'');
-  const tel2 = tel.startsWith('56') ? tel : (tel.startsWith('9') ? '56'+tel : tel);
-  const msg = `Hola ${c.cliente_nombre||''}, te escribimos de Premium Motorbikes por tu cita ${c.folio} del ${citaFechaLabel(c.fecha,c.hora)}.`;
-  return `https://wa.me/${tel2}?text=${encodeURIComponent(msg)}`;
+// adapta una fila de premium_citas al formato que usa construirCitaPDFDoc (el mismo que arma el cliente al agendar)
+function citaDbAPdf(c){
+  return {
+    folio:c.folio, fecha:c.fecha, hora:c.hora,
+    nombre:c.cliente_nombre, rut:c.cliente_rut, correo:c.cliente_email, telefono:c.cliente_telefono,
+    patente:c.moto_patente, marca:c.moto_marca, modelo:c.moto_modelo,
+    tipoServ:c.tipo, plan:c.plan_key,
+    servicio: c.tipo==='servicio' ? {nombre:c.plan_nombre, precio:c.plan_precio} : null,
+    total:c.plan_precio
+  };
+}
+async function enviarCitaWaConPdf(c){
+  const telWa = normTelWa(c.cliente_telefono);
+  if (!telWa){ toast('Esta cita no tiene un WhatsApp válido','bad'); return; }
+  const doc = await construirCitaPDFDoc(citaDbAPdf(c));
+  doc.save(`Cita_PremiumMotorbikes_${c.folio||''}.pdf`.replace(/\s+/g,'_'));
+  const msg = `Hola ${c.cliente_nombre||''}, te escribimos de Premium Motorbikes por tu cita ${c.folio} del ${citaFechaLabel(c.fecha,c.hora)}. Te adjuntamos el PDF actualizado.`;
+  window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`,'_blank');
+  toast('Se abrió el chat y se descargó el PDF: adjúntalo ahí con 📎','ok');
 }
 function renderAgendaLista(citas){
   const L=$('#agendaLista');
@@ -2009,7 +2023,7 @@ function renderAgendaLista(citas){
       ${tomada ? `<div style="margin-top:10px;font-size:13px;font-weight:700;color:var(--acento-txt)">✅ Tomado por: ${esc(c.tomado_por||'—')}</div>` : ''}
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         ${tomada ? '' : `<button class="btn-save" data-tomar="${c.id}" style="flex:1 1 140px;padding:11px">Tomar esta cita</button>`}
-        <a class="btn-wa" href="${citaWaLink(c)}" target="_blank" rel="noopener" style="flex:1 1 140px;padding:11px;justify-content:center;text-decoration:none">🟢 WhatsApp</a>
+        <button class="btn-wa" data-wapdf="${c.id}" style="flex:1 1 140px;padding:11px">🟢 WhatsApp + PDF</button>
         <button class="btn-ghost" data-editar="${c.id}" style="flex:1 1 140px;padding:11px">✏️ Cambiar hora</button>
         <button class="btn-del" data-cancelar="${c.id}" style="flex:1 1 140px;padding:11px">🗑️ Cancelar</button>
       </div>
@@ -2026,6 +2040,12 @@ function renderAgendaLista(citas){
       </div>
     </div>`;
   }).join('');
+  L.querySelectorAll('[data-wapdf]').forEach(b=>b.onclick=async()=>{
+    const c = citas.find(x=>x.id===b.dataset.wapdf); if (!c) return;
+    const orig=b.textContent; b.disabled=true; b.textContent='Generando…';
+    try{ await enviarCitaWaConPdf(c); } catch(e){ toast('No se pudo generar el PDF','bad'); }
+    b.disabled=false; b.textContent=orig;
+  });
   L.querySelectorAll('[data-editar]').forEach(b=>b.onclick=()=>{
     const box = L.querySelector(`[data-editbox="${b.dataset.editar}"]`);
     box.classList.toggle('hidden');
