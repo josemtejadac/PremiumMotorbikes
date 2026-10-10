@@ -51,7 +51,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     /* acento primario = negro del logo; los textos sobre el acento van en lima */
@@ -868,6 +868,7 @@
       <button class="btnprecios hidden" id="preciosBtn">💲 Editar precios</button>
       <button class="btnprecios hidden" id="equipoBtn">👥 Equipo</button>
       <button class="btnprecios hidden" id="motosBtn">🏍️ Motos</button>
+      <button class="btnprecios hidden" id="excelBtn">📊 Excel</button>
     </div>
     <div class="grid" id="list"></div>
     <footer class="appfoot">
@@ -1478,6 +1479,27 @@
   </div>
 </div>
 
+<!-- MODAL EXPORTAR EXCEL -->
+<div id="excelModal" class="modalov">
+  <div class="modalbox">
+    <h3>📊 Descargar Excel</h3>
+    <p class="modalsub">Servicios con todo el detalle, por trabajador o de todos. Incluye un resumen y el detalle de cada ítem.</p>
+    <label>Trabajador</label>
+    <select id="xlTrab" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--gris2);margin-bottom:12px"></select>
+    <div class="row c2">
+      <div><label>Desde</label><input type="date" id="xlDesde"></div>
+      <div><label>Hasta</label><input type="date" id="xlHasta"></div>
+    </div>
+    <p class="modalsub" style="margin:8px 0 0">Déjalas vacías para incluir todo. El filtro de fecha usa el día en que se recibió la moto.</p>
+    <div id="xlMsg" class="modalsub" style="margin:10px 0 0;min-height:18px"></div>
+    <button class="btn-ghost hidden" id="xlGuardarBtn" style="width:100%;margin-top:8px">⬇️ Toca aquí para guardar el archivo</button>
+    <div class="modalact">
+      <button class="btn-ghost" id="xlCancel">Cerrar</button>
+      <button class="btn-save" id="xlGo" style="flex:0 0 auto;padding:12px 20px">Descargar Excel</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL AGENDA DE HORAS -->
 <div id="agendaModal" class="modalov">
   <div class="modalbox" style="max-width:560px">
@@ -1866,10 +1888,12 @@ async function openApp(){
     const pb=$('#preciosBtn'); if(pb) pb.classList.remove('hidden');
     const eb=$('#equipoBtn'); if(eb) eb.classList.remove('hidden');
     const mb=$('#motosBtn'); if(mb) mb.classList.remove('hidden');
+    const xb=$('#excelBtn'); if(xb) xb.classList.remove('hidden');
   } else {
     const pb=$('#preciosBtn'); if(pb) pb.classList.add('hidden');
     const eb=$('#equipoBtn'); if(eb) eb.classList.add('hidden');
     const mb=$('#motosBtn'); if(mb) mb.classList.add('hidden');
+    const xb=$('#excelBtn'); if(xb) xb.classList.add('hidden');
   }
   loadServicios();
   loadAgendaBadge();
@@ -1883,11 +1907,13 @@ async function logout(){
 /* ============================================================
    LISTADO
    ============================================================ */
+let serviciosCargadosEn = 0;
 async function loadServicios(){
   const { data, error } = await db.from('premium_servicios')
     .select('*').order('created_at',{ascending:false});
   if (error){ toast('Error al cargar: '+error.message,'bad'); return; }
   servicios = data||[];
+  serviciosCargadosEn = Date.now();
   renderList();
 }
 function renderList(){
@@ -2164,6 +2190,162 @@ $('#equipoBtn').onclick = ()=> abrirEquipo();
 
 /* ===== GESTIÓN DE MOTOS (solo admin) ===== */
 $('#motosBtn').onclick = ()=> abrirMotos();
+
+/* ===== EXPORTAR EXCEL (solo admin) ===== */
+let xlBlob=null, xlNombre='';
+const TZ_CL='America/Santiago';
+function xlFecha(iso){            // hora de Chile como fecha de Excel
+  if(!iso) return null; const d=new Date(iso); if(isNaN(d)) return null;
+  const p={}; new Intl.DateTimeFormat('en-CA',{timeZone:TZ_CL,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'})
+    .formatToParts(d).forEach(x=>{ if(x.type!=='literal') p[x.type]=x.value; });
+  return new Date(Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second));
+}
+function xlDia(iso){ return new Intl.DateTimeFormat('en-CA',{timeZone:TZ_CL}).format(new Date(iso)); }
+function cargarExcelJS(){
+  if (window.ExcelJS) return Promise.resolve();
+  return new Promise((ok,fail)=>{
+    const sc=document.createElement('script');
+    sc.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    sc.onload=()=>window.ExcelJS?ok():fail(new Error('ExcelJS no disponible'));
+    sc.onerror=()=>fail(new Error('No se pudo cargar la librería de Excel. Revisa tu conexión.'));
+    document.head.appendChild(sc);
+  });
+}
+async function abrirExcel(){
+  $('#excelModal').classList.add('open');
+  $('#xlMsg').textContent=''; $('#xlGuardarBtn').classList.add('hidden');
+  const sel=$('#xlTrab');
+  sel.innerHTML='<option value="__todos">Todos los trabajadores</option><option value="__sin">Sin tomar</option>';
+  try{
+    const { data } = await db.from('premium_trabajadores').select('nombre').neq('rol','developer').order('nombre');
+    (data||[]).forEach(t=>{ const o=document.createElement('option'); o.value=t.nombre; o.textContent=t.nombre; sel.appendChild(o); });
+  }catch(e){}
+}
+function xlEstiloTabla(ws, cols){
+  const h=ws.getRow(1); h.height=24;
+  h.eachCell(c=>{ c.font={bold:true,color:{argb:'FFB3FC06'},size:11};
+    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0D0F13'}};
+    c.alignment={vertical:'middle',horizontal:'center',wrapText:true}; });
+  ws.views=[{state:'frozen',ySplit:1}];
+  ws.autoFilter={from:{row:1,column:1},to:{row:1,column:cols}};
+  const borde={style:'thin',color:{argb:'FFD9DDE3'}};
+  ws.eachRow((r,n)=>{ if(n===1) return;
+    r.eachCell({includeEmpty:true},c=>{ c.border={top:borde,bottom:borde,left:borde,right:borde};
+      c.alignment={vertical:'top',wrapText:true,horizontal:c.alignment&&c.alignment.horizontal};
+      if(n%2===0) c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF6F7F9'}}; });
+  });
+}
+async function generarExcel(){
+  const msg=$('#xlMsg'), btn=$('#xlGo');
+  btn.disabled=true; btn.textContent='Generando…'; $('#xlGuardarBtn').classList.add('hidden');
+  try{
+    if (!servicios.length || Date.now()-serviciosCargadosEn > 10*60*1000){
+      msg.textContent='Actualizando servicios…';
+      await loadServicios();
+    }
+    const sel=$('#xlTrab').value, desde=$('#xlDesde').value, hasta=$('#xlHasta').value;
+    let filas=servicios.slice();
+    if (sel==='__sin') filas=filas.filter(s=>!s.tomado_por);
+    else if (sel!=='__todos') filas=filas.filter(s=>s.tomado_por===sel);
+    if (desde) filas=filas.filter(s=>xlDia(s.fecha_recibido||s.created_at)>=desde);
+    if (hasta) filas=filas.filter(s=>xlDia(s.fecha_recibido||s.created_at)<=hasta);
+    if (!filas.length){ msg.textContent='No hay servicios con ese filtro.'; return; }
+
+    msg.textContent='Armando el archivo…';
+    await cargarExcelJS();
+    const wb=new ExcelJS.Workbook(); wb.creator='Premium Motorbikes'; wb.created=new Date();
+    const MONEDA='"$"#,##0', FECHA='dd-mm-yyyy hh:mm';
+
+    // --- Hoja 1: resumen por trabajador
+    const wr=wb.addWorksheet('Resumen');
+    wr.columns=[{header:'Trabajador',key:'t',width:30},{header:'Servicios',key:'n',width:12},{header:'Entregados',key:'e',width:13},
+      {header:'En curso',key:'c',width:12},{header:'Total vendido',key:'v',width:18},{header:'Promedio por servicio',key:'p',width:22}];
+    const agr={};
+    filas.forEach(s=>{ const k=s.tomado_por||'Sin tomar'; const a=agr[k]||(agr[k]={n:0,e:0,v:0}); a.n++; if(s.estado==='entregado') a.e++; a.v+=Number(s.total)||0; });
+    let tn=0,te=0,tv=0;
+    Object.keys(agr).sort().forEach(k=>{ const a=agr[k]; tn+=a.n; te+=a.e; tv+=a.v;
+      wr.addRow({t:k,n:a.n,e:a.e,c:a.n-a.e,v:a.v,p:Math.round(a.v/a.n)}); });
+    wr.addRow({t:'TOTAL',n:tn,e:te,c:tn-te,v:tv,p:Math.round(tv/tn)});
+    xlEstiloTabla(wr,6);
+    wr.getColumn('v').numFmt=MONEDA; wr.getColumn('p').numFmt=MONEDA;
+    const ult=wr.getRow(wr.rowCount); ult.font={bold:true};
+    wr.addRow([]);
+    const rango=(desde||hasta)?((desde||'inicio')+' a '+(hasta||'hoy')):'Todo el historial';
+    wr.addRow(['Filtro: '+($('#xlTrab').selectedOptions[0].textContent)+' · Período: '+rango]);
+    wr.addRow(['Generado el '+new Date().toLocaleString('es-CL',{timeZone:TZ_CL})]);
+
+    // --- Hoja 2: servicios
+    const ws=wb.addWorksheet('Servicios');
+    ws.columns=[
+      {header:'Folio',key:'folio',width:17},{header:'Fecha recibido',key:'rec',width:17},{header:'Fecha entregado',key:'ent',width:17},
+      {header:'Estado',key:'estado',width:16},{header:'Realizado por',key:'tom',width:22},{header:'Ingresado por',key:'cre',width:22},
+      {header:'Cliente',key:'cli',width:24},{header:'RUT',key:'rut',width:14},{header:'Teléfono',key:'tel',width:16},
+      {header:'Patente',key:'pat',width:11},{header:'Moto',key:'moto',width:24},{header:'Km',key:'km',width:10},
+      {header:'Categoría',key:'cat',width:16},{header:'Plan',key:'plan',width:18},{header:'N° ítems',key:'ni',width:9},
+      {header:'Desc. %',key:'desc',width:9},{header:'Total',key:'total',width:15},{header:'Observaciones',key:'obs',width:44}];
+    filas.forEach(s=>{
+      const items=Array.isArray(s.items)?s.items:[];
+      ws.addRow({folio:s.folio,rec:xlFecha(s.fecha_recibido||s.created_at),ent:xlFecha(s.fecha_entregado),
+        estado:estadoLabel(s.estado),tom:s.tomado_por||'Sin tomar',cre:s.creado_por||'',
+        cli:s.cliente_nombre||'',rut:s.cliente_rut||'',tel:s.cliente_telefono||'',pat:s.moto_patente||'',
+        moto:[s.moto_marca,s.moto_modelo].filter(Boolean).join(' '),km:s.kilometraje||null,
+        cat:(typeof CAT_LABEL!=='undefined'&&CAT_LABEL[s.categoria])||s.categoria||'',plan:s.plan_nombre||'',
+        ni:items.length,desc:Number(s.descuento)||0,total:Number(s.total)||0,obs:s.observaciones||''});
+    });
+    xlEstiloTabla(ws,18);
+    ['rec','ent'].forEach(k=>ws.getColumn(k).numFmt=FECHA);
+    ws.getColumn('total').numFmt=MONEDA; ws.getColumn('km').numFmt='#,##0';
+
+    // --- Hoja 3: detalle de ítems
+    const wd=wb.addWorksheet('Detalle de ítems');
+    wd.columns=[
+      {header:'Folio',key:'folio',width:17},{header:'Fecha recibido',key:'rec',width:17},{header:'Patente',key:'pat',width:11},
+      {header:'Cliente',key:'cli',width:24},{header:'Realizado por',key:'tom',width:22},{header:'Detalle',key:'det',width:46},
+      {header:'Tipo',key:'tipo',width:12},{header:'Agregado por',key:'ag',width:22},{header:'Cant.',key:'cant',width:8},
+      {header:'Precio unit.',key:'pu',width:15},{header:'Desc. %',key:'d',width:9},{header:'Subtotal',key:'sub',width:15}];
+    filas.forEach(s=>{
+      (Array.isArray(s.items)?s.items:[]).forEach(it=>{
+        wd.addRow({folio:s.folio,rec:xlFecha(s.fecha_recibido||s.created_at),pat:s.moto_patente||'',cli:s.cliente_nombre||'',
+          tom:s.tomado_por||'Sin tomar',det:it.descripcion||'',
+          tipo:it.tipo==='plan'?'Plan':it.origen==='tienda'?'Tienda':it.origen==='manual'?'Manual':'—',
+          ag:it.creado_por||'',cant:Number(it.cantidad)||1,pu:Number(it.precio)||0,d:Number(it.descuento)||0,sub:itemNeto(it)});
+      });
+    });
+    if (wd.rowCount===1) wd.addRow({folio:'Sin ítems en el filtro elegido'});
+    xlEstiloTabla(wd,12);
+    wd.getColumn('rec').numFmt=FECHA; wd.getColumn('pu').numFmt=MONEDA; wd.getColumn('sub').numFmt=MONEDA;
+
+    const buf=await wb.xlsx.writeBuffer();
+    xlBlob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const quien=sel==='__todos'?'Todos':sel==='__sin'?'SinTomar':sel.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúñÑ]+/g,'_');
+    xlNombre='Servicios_PremiumMotorbikes_'+quien+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
+    msg.innerHTML='✅ Archivo listo: <b>'+filas.length+' servicio'+(filas.length===1?'':'s')+'</b>.';
+    $('#xlGuardarBtn').classList.remove('hidden');
+    await entregarExcel();
+  }catch(e){
+    msg.textContent='No se pudo generar el Excel: '+(e.message||e);
+  }finally{
+    btn.disabled=false; btn.textContent='Descargar Excel';
+  }
+}
+async function entregarExcel(){
+  if (!xlBlob) return;
+  const movil=/iPhone|iPad|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints>1 && /Macintosh/.test(navigator.userAgent));
+  if (movil && navigator.canShare){
+    try{
+      const file=new File([xlBlob], xlNombre, {type:xlBlob.type});
+      if (navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:xlNombre}); return; }
+    }catch(e){ if (e && e.name==='AbortError') return; }
+  }
+  const url=URL.createObjectURL(xlBlob);
+  const a=document.createElement('a'); a.href=url; a.download=xlNombre; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+$('#excelBtn').onclick = abrirExcel;
+$('#xlGo').onclick = generarExcel;
+$('#xlGuardarBtn').onclick = entregarExcel;
+$('#xlCancel').onclick = ()=> $('#excelModal').classList.remove('open');
+$('#excelModal').onclick = e=>{ if(e.target.id==='excelModal') $('#excelModal').classList.remove('open'); };
 $('#motosClose').onclick = ()=> $('#motosModal').classList.remove('open');
 $('#motosModal').onclick = e=>{ if(e.target.id==='motosModal') $('#motosModal').classList.remove('open'); };
 
@@ -2875,7 +3057,10 @@ async function guardar(silent){
   const orig=JSON.parse(JSON.stringify(current)); delete orig._orig; current._orig=orig;
   renderFotos();
   if (!silent) toast('Servicio guardado','ok');
-  await loadServicios();
+  const fila = res.data;
+  const ix = servicios.findIndex(x=>x.id===fila.id);
+  if (ix>=0) servicios[ix]=fila; else servicios.unshift(fila);
+  renderList();
   return true;
 }
 $('#saveBtn').onclick=async()=>{ if(await guardar(false)) {/* queda abierto */} };
