@@ -2372,6 +2372,7 @@ async function openEditor(s){
   $('#f_obs').value=current.observaciones||'';
   $('#f_nota_insumos').checked = current.mostrar_nota_insumos !== false;
   $('#f_descuento').value = Number(current.descuento)||0;
+  $('#f_descuento').readOnly = !esAdmin();
 
   // Auto-completar datos si es servicio nuevo y no tiene datos
   if (!current.id && !current.cliente_nombre) {
@@ -2534,14 +2535,14 @@ function renderIpLista(){
     </div></div>`).join('');
   L.querySelectorAll('.ipadd').forEach(b=>b.onclick=async()=>{
     const p=productos.find(x=>x.id===b.dataset.id); if(!p||!current) return;
-    current.items.push({descripcion:p.nombre, cantidad:1, precio:precioFinal(p)});
+    current.items.push({descripcion:p.nombre, cantidad:1, precio:precioFinal(p), origen:'tienda', creado_por:trabajadorNombre});
     renderItems();
     toast('Agregado: '+p.nombre,'ok');
     if (p.stock!==null && p.stock!==undefined){
       const nuevoStock = Math.max(0, p.stock-1);
       p.stock = nuevoStock;
       renderIpLista();
-      try{ await db.from('premium_productos').update({stock:nuevoStock}).eq('id',p.id); }catch(e){}
+      try{ await db.rpc('pm_descontar_stock',{ p_id:p.id, p_cant:1 }); }catch(e){}
     }
   });
 }
@@ -2647,16 +2648,22 @@ function removePlan(){
 }
 
 /* items / hoja editable */
+// Los trabajadores solo pueden AGREGAR ítems. Precio, descuento y descripción quedan
+// bloqueados salvo en los ítems manuales que ellos mismos crearon; el admin edita todo.
+function itemPropio(it){ return it.creado_por===trabajadorNombre; }
+function itemBloqueado(it){ return !esAdmin() && !(it.origen==='manual' && itemPropio(it)); }
+function itemBorrable(it){ return esAdmin() || it.tipo==='plan' || itemPropio(it); }
 function renderItems(){
   const B=$('#itemsBody');
   B.innerHTML = current.items.map((it,i)=>{
     const isPlan = it.tipo==='plan';
+    const ro = itemBloqueado(it) ? ' readonly style="opacity:.7"' : '';
     return `<tr class="${isPlan?'plrow':''}">
-      <td><input data-i="${i}" data-k="descripcion" value="${esc(it.descripcion)}" ${isPlan?'':''} placeholder="Detalle del trabajo o repuesto">${isPlan?'<span class="pchip">PLAN</span>':''}</td>
+      <td><input data-i="${i}" data-k="descripcion" value="${esc(it.descripcion)}"${ro} placeholder="Detalle del trabajo o repuesto">${isPlan?'<span class="pchip">PLAN</span>':''}</td>
       <td class="tcant" data-l="Cant."><input data-i="${i}" data-k="cantidad" type="number" inputmode="numeric" min="1" value="${Number(it.cantidad)||1}"></td>
-      <td class="tprecio" data-l="Precio"><input data-i="${i}" data-k="precio" type="number" inputmode="numeric" value="${Number(it.precio)||0}" placeholder="0"></td>
-      <td class="tdesc" data-l="Desc %"><input data-i="${i}" data-k="descuento" type="number" inputmode="numeric" min="0" max="100" value="${Number(it.descuento)||0}"></td>
-      <td class="tdel"><button class="delx" data-del="${i}">×</button></td>
+      <td class="tprecio" data-l="Precio"><input data-i="${i}" data-k="precio" type="number" inputmode="numeric" value="${Number(it.precio)||0}" placeholder="0"${ro}></td>
+      <td class="tdesc" data-l="Desc %"><input data-i="${i}" data-k="descuento" type="number" inputmode="numeric" min="0" max="100" value="${Number(it.descuento)||0}"${ro}></td>
+      <td class="tdel">${itemBorrable(it)?`<button class="delx" data-del="${i}">×</button>`:''}</td>
     </tr>`;
   }).join('');
   B.querySelectorAll('input').forEach(inp=>inp.oninput=()=>{
@@ -2674,7 +2681,7 @@ function renderItems(){
   });
   computeTotal();
 }
-$('#addItemBtn').onclick=()=>{ current.items.push({descripcion:'',cantidad:1,precio:0}); renderItems();
+$('#addItemBtn').onclick=()=>{ current.items.push({descripcion:'',cantidad:1,precio:0,origen:'manual',creado_por:trabajadorNombre}); renderItems();
   const last=$('#itemsBody').querySelector('tr:last-child input'); if(last) last.focus(); };
 function computeTotal(){
   const sub = current.items.reduce((a,b)=>a+itemNeto(b),0);
@@ -3663,8 +3670,16 @@ function setAdmin(v){
   $('#tCatsBtn').classList.toggle('hidden', !v);
   renderProductos();
 }
-$('#adminBtn').onclick=()=>{
+$('#adminBtn').onclick=async()=>{
   if (tiendaAdmin){ if(confirm('¿Salir del modo administrador?')) setAdmin(false); return; }
+  // un trabajador con sesión iniciada no puede desbloquear la edición de la tienda
+  try{
+    const { data } = await db.auth.getSession();
+    if (data && data.session){
+      if (!esAdmin()){ toast('Solo el administrador puede editar la tienda','bad'); return; }
+      setAdmin(true); return;
+    }
+  }catch(e){}
   $('#tPass').value=''; $('#tPassErr').classList.add('hidden');
   $('#tAdminLogin').classList.add('open'); $('#tPass').focus();
 };
