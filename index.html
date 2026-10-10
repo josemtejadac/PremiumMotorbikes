@@ -1910,13 +1910,49 @@ async function logout(){
 let serviciosCargadosEn = 0;
 // Todas las columnas menos firma_entrega (imagen en texto, muy pesada). Si se agrega una columna nueva a la tabla, sumarla aquí.
 const COLS_LISTA = 'id,folio,estado,categoria,plan_key,plan_nombre,cliente_nombre,cliente_rut,cliente_telefono,moto_patente,moto_marca,moto_modelo,items,checklist,total,observaciones,fotos_ingreso,fotos_salida,fecha_recibido,fecha_entregado,created_at,updated_at,retira_nombre,retira_rut,mostrar_nota_insumos,creado_por,creado_por_email,editado_por,estado_motivo,descuento,kilometraje,fotos_pdf,fotos_comprimidas,fotos_proceso,tomado_por';
+const TANDA_ENTREGADOS = 10;
+let entOffset = 0, hayMasEnt = false, cargandoMas = false;
 async function loadServicios(){
-  const { data, error } = await db.from('premium_servicios')
-    .select(COLS_LISTA).order('created_at',{ascending:false});
+  // activos: todos (suelen ser pocos). Entregados: solo la primera tanda; el resto con "Ver más".
+  const [act, ent] = await Promise.all([
+    db.from('premium_servicios').select(COLS_LISTA).neq('estado','entregado').order('created_at',{ascending:false}),
+    db.from('premium_servicios').select(COLS_LISTA).eq('estado','entregado').order('created_at',{ascending:false}).range(0,TANDA_ENTREGADOS-1)
+  ]);
+  const error = act.error || ent.error;
   if (error){ toast('Error al cargar: '+error.message,'bad'); return; }
-  servicios = data||[];
+  servicios = (act.data||[]).concat(ent.data||[]);
+  entOffset = (ent.data||[]).length;
+  hayMasEnt = entOffset === TANDA_ENTREGADOS;
   serviciosCargadosEn = Date.now();
   renderList();
+}
+async function verMasEntregados(){
+  if (cargandoMas) return; cargandoMas = true;
+  const { data, error } = await db.from('premium_servicios').select(COLS_LISTA).eq('estado','entregado')
+    .order('created_at',{ascending:false}).range(entOffset, entOffset+TANDA_ENTREGADOS-1);
+  cargandoMas = false;
+  if (error){ toast('No se pudo cargar más: '+error.message,'bad'); return; }
+  const nuevos = (data||[]).filter(n=>!servicios.some(x=>x.id===n.id));
+  servicios = servicios.concat(nuevos);
+  entOffset += (data||[]).length;
+  hayMasEnt = (data||[]).length === TANDA_ENTREGADOS;
+  renderList();
+}
+// búsqueda en la base (para encontrar entregados que aún no se han cargado)
+let tBusca = null;
+function buscarEnBase(){
+  clearTimeout(tBusca);
+  const q = ($('#search').value||'').trim().replace(/[,()%*\]/g,' ').trim();
+  if (q.length < 2) return;
+  tBusca = setTimeout(async ()=>{
+    const p = '%'+q+'%';
+    const { data } = await db.from('premium_servicios').select(COLS_LISTA)
+      .or('folio.ilike.'+p+',moto_patente.ilike.'+p+',moto_marca.ilike.'+p+',moto_modelo.ilike.'+p+',cliente_nombre.ilike.'+p)
+      .order('created_at',{ascending:false}).limit(50);
+    let agregado = false;
+    (data||[]).forEach(n=>{ if (!servicios.some(x=>x.id===n.id)){ servicios.push(n); agregado = true; } });
+    if (agregado) renderList();
+  }, 400);
 }
 function renderList(){
   const q = ($('#search').value||'').toLowerCase().trim();
@@ -1948,13 +1984,17 @@ function renderList(){
       ${s.creado_por?`<div class="autor">Ingresada por ${esc(s.creado_por)}${s.tomado_por?` · Realizando: <b>${esc(s.tomado_por)}</b>`:' · Sin tomar'}</div>`:''}
       </div>`;
   }).join('');
-  $$('.scard').forEach(c=>c.onclick=()=>openEditor(servicios.find(s=>s.id===c.dataset.id)));
+  if (hayMasEnt && !q && (filtro==='todos' || filtro==='entregado')){
+    L.insertAdjacentHTML('beforeend','<div style="grid-column:1/-1;text-align:center;padding:6px 0 14px"><button class="btn-ghost" id="verMasBtn" style="padding:12px 22px">Ver más entregados</button></div>');
+    $('#verMasBtn').onclick = async function(){ this.disabled=true; this.textContent='Cargando…'; await verMasEntregados(); };
+  }
+  $('.scard').forEach(c=>c.onclick=()=>openEditor(servicios.find(s=>s.id===c.dataset.id)));
 }
 function estadoLabel(e){ return {recibido:'Recibido',en_proceso:'En proceso',en_pausa:'En pausa',lista_retiro:'Lista para retiro',entregado:'Entregado'}[e]||e; }
 function fechaCorta(iso){ if(!iso) return ''; const d=new Date(iso);
   return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'2-digit'})+' · '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}); }
 
-$('#search').addEventListener('input', renderList);
+$('#search').addEventListener('input', ()=>{ renderList(); buscarEnBase(); });
 $$('#filterChips .chip').forEach(c=>c.onclick=()=>{
   $$('#filterChips .chip').forEach(x=>x.classList.remove('on'));
   c.classList.add('on'); filtro=c.dataset.f; renderList();
@@ -2225,7 +2265,10 @@ async function abrirExcel(){
     const { data } = await db.from('premium_trabajadores').select('nombre').neq('rol','developer');
     (data||[]).forEach(t=>t.nombre && nombres.add(t.nombre));
   }catch(e){}
-  (servicios||[]).forEach(x=>{ if (x.tomado_por) nombres.add(x.tomado_por); if (x.creado_por) nombres.add(x.creado_por); });
+  try{
+    const { data } = await db.from('premium_servicios').select('tomado_por,creado_por').limit(1000);
+    (data||[]).forEach(x=>{ if (x.tomado_por) nombres.add(x.tomado_por); if (x.creado_por) nombres.add(x.creado_por); });
+  }catch(e){}
   [...nombres].sort((a,b)=>a.localeCompare(b,'es')).forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
 }
 function xlEstiloTabla(ws, cols){
@@ -2246,12 +2289,17 @@ async function generarExcel(){
   const msg=$('#xlMsg'), btn=$('#xlGo');
   btn.disabled=true; btn.textContent='Generando…'; $('#xlGuardarBtn').classList.add('hidden');
   try{
-    if (!servicios.length || Date.now()-serviciosCargadosEn > 10*60*1000){
-      msg.textContent='Actualizando servicios…';
-      await loadServicios();
+    msg.textContent='Cargando servicios…';
+    const todos = [];
+    for (let ini=0; ; ini+=1000){
+      const { data, error } = await db.from('premium_servicios').select(COLS_LISTA)
+        .order('created_at',{ascending:false}).range(ini, ini+999);
+      if (error) throw error;
+      todos.push(...(data||[]));
+      if (!data || data.length < 1000) break;
     }
     const sel=$('#xlTrab').value, desde=$('#xlDesde').value, hasta=$('#xlHasta').value;
-    let filas=servicios.slice();
+    let filas=todos;
     if (sel==='__sin') filas=filas.filter(s=>!s.tomado_por);
     else if (sel!=='__todos') filas=filas.filter(s=>responsable(s)===sel);
     if (desde) filas=filas.filter(s=>xlDia(s.fecha_recibido||s.created_at)>=desde);
