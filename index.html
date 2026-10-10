@@ -1988,7 +1988,7 @@ function renderList(){
     L.insertAdjacentHTML('beforeend','<div style="grid-column:1/-1;text-align:center;padding:6px 0 14px"><button class="btn-ghost" id="verMasBtn" style="padding:12px 22px">Ver más entregados</button></div>');
     $('#verMasBtn').onclick = async function(){ this.disabled=true; this.textContent='Cargando…'; await verMasEntregados(); };
   }
-  $('.scard').forEach(c=>c.onclick=()=>openEditor(servicios.find(s=>s.id===c.dataset.id)));
+  $$('.scard').forEach(c=>c.onclick=()=>openEditor(servicios.find(s=>s.id===c.dataset.id)));
 }
 function estadoLabel(e){ return {recibido:'Recibido',en_proceso:'En proceso',en_pausa:'En pausa',lista_retiro:'Lista para retiro',entregado:'Entregado'}[e]||e; }
 function fechaCorta(iso){ if(!iso) return ''; const d=new Date(iso);
