@@ -2375,7 +2375,8 @@ async function ensureCatalogos(){
   if (!catsCargadas){
     try{
       const { data } = await db.from('premium_config').select('value').eq('key','categorias').maybeSingle();
-      if (data && data.value && typeof data.value === 'object' && !Array.isArray(data.value)) CATS = data.value;
+      if (data && Array.isArray(data.value)) CATS = Object.fromEntries(data.value);
+      else if (data && data.value && typeof data.value === 'object') CATS = data.value;
     }catch(e){}
     IP_CATS = Object.entries(CATS).map(([k,v])=>[k,v]);
     catsCargadas = true;
@@ -3274,9 +3275,8 @@ function catDesc(id){ return CAT_DESC[id] || 'Calidad garantizada para tu moto';
 async function cargarCategorias(){
   try{
     const { data } = await db.from('premium_config').select('value').eq('key','categorias').maybeSingle();
-    if (data && data.value && typeof data.value === 'object' && !Array.isArray(data.value)){
-      CATS = data.value;
-    }
+    if (data && Array.isArray(data.value)) CATS = Object.fromEntries(data.value);
+    else if (data && data.value && typeof data.value === 'object') CATS = data.value;
   }catch(e){}
   catsCargadas = true;
   IP_CATS = Object.entries(CATS).map(([k,v])=>[k,v]);
@@ -3358,7 +3358,9 @@ function renderCatLanding(){
 }
 
 async function guardarCategorias(){
-  await db.from('premium_config').upsert({key:'categorias', value:CATS, updated_at:new Date().toISOString()});
+  // se guarda como lista de pares [id,nombre] y no como objeto: jsonb no respeta el orden
+  // de las llaves de un objeto, solo el orden de los elementos de un arreglo
+  await db.from('premium_config').upsert({key:'categorias', value:Object.entries(CATS), updated_at:new Date().toISOString()});
 }
 
 $('#chooseTienda').onclick = abrirTienda;
@@ -3380,7 +3382,7 @@ async function abrirTienda(){
   $('#tienda').classList.add('open');
   const ad=$('#tAddr'); if(ad&&CONFIG.taller.direccion) ad.innerHTML='📍 '+esc(CONFIG.taller.direccion)+'  ·  ☎ '+esc(CONFIG.taller.telefono)+(CONFIG.taller.horario?'<br>🕘 '+esc(CONFIG.taller.horario):'');
   const ig=$('#tIg'); if(ig){ ig.href=CONFIG.taller.instagram; ig.innerHTML=igIcon()+' '+CONFIG.taller.instagramUser; }
-  try{ const { data } = await db.auth.getSession(); if (data && data.session) setAdmin(true); }catch(e){}
+  try{ const { data } = await db.auth.getSession(); if (data && data.session) setAdmin(esAdmin()); }catch(e){}
   await cargarCategorias();
   await cargarProductos();
 }
