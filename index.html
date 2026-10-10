@@ -1908,9 +1908,11 @@ async function logout(){
    LISTADO
    ============================================================ */
 let serviciosCargadosEn = 0;
+// Todas las columnas menos firma_entrega (imagen en texto, muy pesada). Si se agrega una columna nueva a la tabla, sumarla aquí.
+const COLS_LISTA = 'id,folio,estado,categoria,plan_key,plan_nombre,cliente_nombre,cliente_rut,cliente_telefono,moto_patente,moto_marca,moto_modelo,items,checklist,total,observaciones,fotos_ingreso,fotos_salida,fecha_recibido,fecha_entregado,created_at,updated_at,retira_nombre,retira_rut,mostrar_nota_insumos,creado_por,creado_por_email,editado_por,estado_motivo,descuento,kilometraje,fotos_pdf,fotos_comprimidas,fotos_proceso,tomado_por';
 async function loadServicios(){
   const { data, error } = await db.from('premium_servicios')
-    .select('*').order('created_at',{ascending:false});
+    .select(COLS_LISTA).order('created_at',{ascending:false});
   if (error){ toast('Error al cargar: '+error.message,'bad'); return; }
   servicios = data||[];
   serviciosCargadosEn = Date.now();
@@ -2558,6 +2560,13 @@ async function openEditor(s){
   };
   // normaliza arrays
   ['items','checklist','fotos_ingreso','fotos_proceso','fotos_salida'].forEach(k=>{ if(!Array.isArray(current[k])) current[k]=[]; });
+  // la lista no trae la firma (pesa mucho): se pide solo la de este servicio
+  if (s && s.id && s.firma_entrega===undefined){
+    try{
+      const { data:fr } = await db.from('premium_servicios').select('firma_entrega').eq('id',s.id).maybeSingle();
+      current.firma_entrega = (fr && fr.firma_entrega) || null;
+    }catch(e){ current.firma_entrega = null; }
+  }
   // guarda una "foto" de cómo llegó el registro, para poder fusionar cambios de otra persona al guardar
   current._orig = JSON.parse(JSON.stringify(current));
 
