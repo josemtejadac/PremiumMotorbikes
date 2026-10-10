@@ -1942,7 +1942,7 @@ async function verMasEntregados(){
 let tBusca = null;
 function buscarEnBase(){
   clearTimeout(tBusca);
-  const q = ($('#search').value||'').trim().replace(/[,()%*\]/g,' ').trim();
+  const q = ($('#search').value||'').trim().replace(/[,()%*]/g,' ').replace(/\\/g,' ').trim();
   if (q.length < 2) return;
   tBusca = setTimeout(async ()=>{
     const p = '%'+q+'%';
