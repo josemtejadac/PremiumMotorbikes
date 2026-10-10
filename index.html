@@ -2203,6 +2203,8 @@ function xlFecha(iso){            // hora de Chile como fecha de Excel
   return new Date(Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second));
 }
 function xlDia(iso){ return new Intl.DateTimeFormat('en-CA',{timeZone:TZ_CL}).format(new Date(iso)); }
+// quién hizo el servicio: quien lo tomó; en los anteriores a la función "Tomar", quien lo ingresó
+function responsable(s){ return s.tomado_por || s.creado_por || 'Sin asignar'; }
 function cargarExcelJS(){
   if (window.ExcelJS) return Promise.resolve();
   return new Promise((ok,fail)=>{
@@ -2218,10 +2220,13 @@ async function abrirExcel(){
   $('#xlMsg').textContent=''; $('#xlGuardarBtn').classList.add('hidden');
   const sel=$('#xlTrab');
   sel.innerHTML='<option value="__todos">Todos los trabajadores</option><option value="__sin">Sin tomar</option>';
+  const nombres = new Set();
   try{
-    const { data } = await db.from('premium_trabajadores').select('nombre').neq('rol','developer').order('nombre');
-    (data||[]).forEach(t=>{ const o=document.createElement('option'); o.value=t.nombre; o.textContent=t.nombre; sel.appendChild(o); });
+    const { data } = await db.from('premium_trabajadores').select('nombre').neq('rol','developer');
+    (data||[]).forEach(t=>t.nombre && nombres.add(t.nombre));
   }catch(e){}
+  (servicios||[]).forEach(x=>{ if (x.tomado_por) nombres.add(x.tomado_por); if (x.creado_por) nombres.add(x.creado_por); });
+  [...nombres].sort((a,b)=>a.localeCompare(b,'es')).forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
 }
 function xlEstiloTabla(ws, cols){
   const h=ws.getRow(1); h.height=24;
@@ -2248,7 +2253,7 @@ async function generarExcel(){
     const sel=$('#xlTrab').value, desde=$('#xlDesde').value, hasta=$('#xlHasta').value;
     let filas=servicios.slice();
     if (sel==='__sin') filas=filas.filter(s=>!s.tomado_por);
-    else if (sel!=='__todos') filas=filas.filter(s=>s.tomado_por===sel);
+    else if (sel!=='__todos') filas=filas.filter(s=>responsable(s)===sel);
     if (desde) filas=filas.filter(s=>xlDia(s.fecha_recibido||s.created_at)>=desde);
     if (hasta) filas=filas.filter(s=>xlDia(s.fecha_recibido||s.created_at)<=hasta);
     if (!filas.length){ msg.textContent='No hay servicios con ese filtro.'; return; }
@@ -2263,7 +2268,7 @@ async function generarExcel(){
     wr.columns=[{header:'Trabajador',key:'t',width:30},{header:'Servicios',key:'n',width:12},{header:'Entregados',key:'e',width:13},
       {header:'En curso',key:'c',width:12},{header:'Total vendido',key:'v',width:18},{header:'Promedio por servicio',key:'p',width:22}];
     const agr={};
-    filas.forEach(s=>{ const k=s.tomado_por||'Sin tomar'; const a=agr[k]||(agr[k]={n:0,e:0,v:0}); a.n++; if(s.estado==='entregado') a.e++; a.v+=Number(s.total)||0; });
+    filas.forEach(s=>{ const k=responsable(s); const a=agr[k]||(agr[k]={n:0,e:0,v:0}); a.n++; if(s.estado==='entregado') a.e++; a.v+=Number(s.total)||0; });
     let tn=0,te=0,tv=0;
     Object.keys(agr).sort().forEach(k=>{ const a=agr[k]; tn+=a.n; te+=a.e; tv+=a.v;
       wr.addRow({t:k,n:a.n,e:a.e,c:a.n-a.e,v:a.v,p:Math.round(a.v/a.n)}); });
@@ -2275,12 +2280,13 @@ async function generarExcel(){
     const rango=(desde||hasta)?((desde||'inicio')+' a '+(hasta||'hoy')):'Todo el historial';
     wr.addRow(['Filtro: '+($('#xlTrab').selectedOptions[0].textContent)+' · Período: '+rango]);
     wr.addRow(['Generado el '+new Date().toLocaleString('es-CL',{timeZone:TZ_CL})]);
+    wr.addRow(['Nota: "Realizado por" es quien tomó el servicio; en los servicios anteriores a la función "Tomar" se usa quien los ingresó.']);
 
     // --- Hoja 2: servicios
     const ws=wb.addWorksheet('Servicios');
     ws.columns=[
       {header:'Folio',key:'folio',width:17},{header:'Fecha recibido',key:'rec',width:17},{header:'Fecha entregado',key:'ent',width:17},
-      {header:'Estado',key:'estado',width:16},{header:'Realizado por',key:'tom',width:22},{header:'Ingresado por',key:'cre',width:22},
+      {header:'Estado',key:'estado',width:16},{header:'Realizado por',key:'tom',width:22},{header:'Dato de "Realizado por"',key:'asig',width:20},{header:'Ingresado por',key:'cre',width:22},
       {header:'Cliente',key:'cli',width:24},{header:'RUT',key:'rut',width:14},{header:'Teléfono',key:'tel',width:16},
       {header:'Patente',key:'pat',width:11},{header:'Moto',key:'moto',width:24},{header:'Km',key:'km',width:10},
       {header:'Categoría',key:'cat',width:16},{header:'Plan',key:'plan',width:18},{header:'N° ítems',key:'ni',width:9},
@@ -2288,13 +2294,13 @@ async function generarExcel(){
     filas.forEach(s=>{
       const items=Array.isArray(s.items)?s.items:[];
       ws.addRow({folio:s.folio,rec:xlFecha(s.fecha_recibido||s.created_at),ent:xlFecha(s.fecha_entregado),
-        estado:estadoLabel(s.estado),tom:s.tomado_por||'Sin tomar',cre:s.creado_por||'',
+        estado:estadoLabel(s.estado),tom:responsable(s),asig:s.tomado_por?'Lo tomó':'Quien lo ingresó',cre:s.creado_por||'',
         cli:s.cliente_nombre||'',rut:s.cliente_rut||'',tel:s.cliente_telefono||'',pat:s.moto_patente||'',
         moto:[s.moto_marca,s.moto_modelo].filter(Boolean).join(' '),km:s.kilometraje||null,
         cat:(typeof CAT_LABEL!=='undefined'&&CAT_LABEL[s.categoria])||s.categoria||'',plan:s.plan_nombre||'',
         ni:items.length,desc:Number(s.descuento)||0,total:Number(s.total)||0,obs:s.observaciones||''});
     });
-    xlEstiloTabla(ws,18);
+    xlEstiloTabla(ws,19);
     ['rec','ent'].forEach(k=>ws.getColumn(k).numFmt=FECHA);
     ws.getColumn('total').numFmt=MONEDA; ws.getColumn('km').numFmt='#,##0';
 
@@ -2308,7 +2314,7 @@ async function generarExcel(){
     filas.forEach(s=>{
       (Array.isArray(s.items)?s.items:[]).forEach(it=>{
         wd.addRow({folio:s.folio,rec:xlFecha(s.fecha_recibido||s.created_at),pat:s.moto_patente||'',cli:s.cliente_nombre||'',
-          tom:s.tomado_por||'Sin tomar',det:it.descripcion||'',
+          tom:responsable(s),det:it.descripcion||'',
           tipo:it.tipo==='plan'?'Plan':it.origen==='tienda'?'Tienda':it.origen==='manual'?'Manual':'—',
           ag:it.creado_por||'',cant:Number(it.cantidad)||1,pu:Number(it.precio)||0,d:Number(it.descuento)||0,sub:itemNeto(it)});
       });
