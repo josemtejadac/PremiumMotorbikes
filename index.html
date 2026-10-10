@@ -115,10 +115,6 @@
     .wrap{padding:0 12px}
     .sbody{padding:16px 12px 210px}
     .block{padding:15px}
-    .items .tprecio{width:104px}
-    .items .tcant{width:50px}
-    .items .tdesc{width:48px}
-    .items th,.items td{padding:5px 5px}
     /* filtros en una sola fila, deslizables */
     .chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
     .chips::-webkit-scrollbar{display:none}
@@ -317,6 +313,20 @@
   .plancheck li{font-size:12.5px;padding:3px 0 3px 20px;position:relative;break-inside:avoid}
   .plancheck li::before{content:"✓";position:absolute;left:0;color:var(--verde);font-weight:800}
 
+  /* calendario de la agenda */
+  .agcal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .agcal-head b{font-family:Oswald;font-size:17px;text-transform:capitalize;color:var(--tinta)}
+  .agcal-head button{width:38px;height:38px;border-radius:10px;background:var(--panel2);color:var(--tinta);font-size:20px;line-height:1}
+  .agcal-dow,.agcal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .agcal-dow span{text-align:center;font-size:11px;font-weight:700;color:var(--gris5);padding:4px 0}
+  .agd{position:relative;aspect-ratio:1/1;border-radius:10px;background:var(--panel2);color:var(--tinta);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;border:2px solid transparent}
+  .agd.hoy{border-color:var(--gris5)}
+  .agd.con{background:var(--tint-acento);color:var(--acento-txt)}
+  .agd.sel{background:var(--tinta);color:var(--panel);border-color:var(--tinta)}
+  .agd i{position:absolute;top:2px;right:3px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--tinta);color:var(--panel);font-size:10.5px;font-style:normal;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .agd i.pend{background:#f59e0b;color:#1a1200}
+  .agcal-info{margin:10px 0 0;font-size:12.5px;color:var(--gris5)}
+
   /* items / hoja */
   .items{width:100%;border-collapse:collapse}
   .items th{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--gris5);text-align:left;padding:6px 8px;border-bottom:2px solid var(--gris2)}
@@ -331,6 +341,17 @@
   .delx{background:#fff0f0;color:var(--peligro);width:32px;height:32px;border-radius:8px;font-size:16px;line-height:1}
   .items .plrow td{background:#fff8f8}
   .items .plrow .pchip{display:inline-block;font-size:9px;background:var(--rojo);color:var(--sobre-acento);padding:2px 6px;border-radius:5px;margin-left:6px;vertical-align:middle;letter-spacing:.5px;font-weight:700}
+  @media(max-width:640px){
+    /* hoja de observación: cada ítem en dos líneas (detalle arriba, números abajo) para que el texto no se corte */
+    .items,.items tbody{display:block;width:100%}
+    .items thead{display:none}
+    .items tr{display:grid;grid-template-columns:64px 1fr 64px 44px;gap:6px 8px;align-items:end;padding:12px 0;border-bottom:1px solid var(--gris2)}
+    .items td{display:block;padding:0;border:0;width:auto}
+    .items td:first-child{grid-column:1 / -1}
+    .items .tprecio,.items .tcant,.items .tdesc,.items .tdel{width:auto}
+    .items td[data-l]::before{content:attr(data-l);display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--gris5);margin-bottom:3px}
+    .items td input{padding:10px 10px;font-size:15px}
+  }
   .additem{background:var(--panel2);color:var(--gris9);padding:10px 14px;font-size:13.5px;margin-top:10px;display:inline-flex;gap:6px;align-items:center}
   .ipcats{display:flex;flex-wrap:wrap;gap:7px}
   .ipcats button{padding:7px 13px;border-radius:999px;border:1.5px solid var(--gris2);background:var(--panel);font-size:13px;font-weight:600;color:var(--gris6)}
@@ -1454,6 +1475,11 @@
     <h3>📅 Agenda de horas</h3>
     <p class="modalsub">Citas agendadas por clientes desde el cotizador. Cualquiera puede tomar una.</p>
     <button class="btn-ghost" id="agendaNuevaBtn" style="width:100%">➕ Agregar cita manual</button>
+    <div class="segbtns" id="agendaVistaSeg" style="margin-top:10px">
+      <div class="seg on" data-v="lista">📋 Lista</div>
+      <div class="seg" data-v="cal">🗓️ Calendario</div>
+    </div>
+    <div id="agendaCal" class="hidden" style="margin-top:10px"></div>
     <div id="agendaNuevaBox" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--gris2);border-radius:10px">
       <div class="row c2">
         <div><label>Fecha</label><input type="date" id="anFecha"></div>
@@ -1948,8 +1974,45 @@ async function abrirAgenda(){
     .select('*').neq('estado','cancelada')
     .order('estado',{ascending:true}).order('fecha',{ascending:true}).order('hora',{ascending:true});
   if (error){ $('#agendaLista').innerHTML = '<p class="modalsub">Error al cargar la agenda.</p>'; return; }
-  renderAgendaLista(data||[]);
+  agendaCitas = data||[];
+  pintarAgenda();
 }
+let agendaVista='lista', agendaCitas=[], agendaMes=null, agendaDia=null;
+const MESES_ES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function isoLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function pintarAgenda(){
+  const cal=$('#agendaCal');
+  $$('#agendaVistaSeg .seg').forEach(x=>x.classList.toggle('on', x.dataset.v===agendaVista));
+  if (agendaVista!=='cal'){ cal.classList.add('hidden'); renderAgendaLista(agendaCitas); return; }
+  cal.classList.remove('hidden');
+  if (!agendaMes){ const h=new Date(); agendaMes=new Date(h.getFullYear(),h.getMonth(),1); }
+  const y=agendaMes.getFullYear(), m=agendaMes.getMonth();
+  const porDia={}; agendaCitas.forEach(c=>{ (porDia[c.fecha]=porDia[c.fecha]||[]).push(c); });
+  const hoy=isoLocal(new Date());
+  const lead=(new Date(y,m,1).getDay()+6)%7;          // la semana parte el lunes
+  const dias=new Date(y,m+1,0).getDate();
+  let celdas='<span></span>'.repeat(lead);
+  for(let d=1; d<=dias; d++){
+    const f=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const arr=porDia[f]||[];
+    const sinTomar=arr.filter(c=>c.estado!=='tomada').length;
+    celdas+=`<button type="button" class="agd${f===hoy?' hoy':''}${arr.length?' con':''}${f===agendaDia?' sel':''}" data-f="${f}">${d}${arr.length?`<i class="${sinTomar?'pend':''}">${arr.length}</i>`:''}</button>`;
+  }
+  const info = agendaDia
+    ? 'Citas del '+new Date(agendaDia+'T00:00:00').toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'})
+    : 'Toca un día para ver sus citas';
+  cal.innerHTML = `
+    <div class="agcal-head"><button type="button" id="agPrev">‹</button><b>${MESES_ES[m]} ${y}</b><button type="button" id="agNext">›</button></div>
+    <div class="agcal-dow"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+    <div class="agcal-grid">${celdas}</div>
+    <p class="agcal-info"><b>${info}</b><br>🟠 Naranja = hay citas sin tomar</p>`;
+  $('#agPrev').onclick=()=>{ agendaMes=new Date(y,m-1,1); agendaDia=null; pintarAgenda(); };
+  $('#agNext').onclick=()=>{ agendaMes=new Date(y,m+1,1); agendaDia=null; pintarAgenda(); };
+  cal.querySelectorAll('.agd').forEach(b=>b.onclick=()=>{ agendaDia=b.dataset.f; pintarAgenda(); });
+  if (agendaDia) renderAgendaLista(porDia[agendaDia]||[], 'No hay citas este día.');
+  else $('#agendaLista').innerHTML='';
+}
+$$('#agendaVistaSeg .seg').forEach(b=>b.onclick=()=>{ agendaVista=b.dataset.v; pintarAgenda(); });
 function renderAnHoras(){
   const fecha = $('#anFecha').value; if (!fecha) return;
   const horas = horasDisponiblesDia(fecha);
@@ -2006,9 +2069,9 @@ async function enviarCitaWaConPdf(c){
   window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`,'_blank');
   toast('Se abrió el chat y se descargó el PDF: adjúntalo ahí con 📎','ok');
 }
-function renderAgendaLista(citas){
+function renderAgendaLista(citas, vacio){
   const L=$('#agendaLista');
-  if (!citas.length){ L.innerHTML='<p class="modalsub">No hay citas agendadas todavía.</p>'; return; }
+  if (!citas.length){ L.innerHTML='<p class="modalsub">'+(vacio||'No hay citas agendadas todavía.')+'</p>'; return; }
   L.innerHTML = citas.map(c=>{
     const servicio = c.tipo==='servicio' ? c.plan_nombre : (c.plan_nombre||'Mantención');
     const tomada = c.estado==='tomada';
@@ -2590,9 +2653,9 @@ function renderItems(){
     const isPlan = it.tipo==='plan';
     return `<tr class="${isPlan?'plrow':''}">
       <td><input data-i="${i}" data-k="descripcion" value="${esc(it.descripcion)}" ${isPlan?'':''} placeholder="Detalle del trabajo o repuesto">${isPlan?'<span class="pchip">PLAN</span>':''}</td>
-      <td class="tcant"><input data-i="${i}" data-k="cantidad" type="number" inputmode="numeric" min="1" value="${Number(it.cantidad)||1}"></td>
-      <td class="tprecio"><input data-i="${i}" data-k="precio" type="number" inputmode="numeric" value="${Number(it.precio)||0}" placeholder="0"></td>
-      <td class="tdesc"><input data-i="${i}" data-k="descuento" type="number" inputmode="numeric" min="0" max="100" value="${Number(it.descuento)||0}"></td>
+      <td class="tcant" data-l="Cant."><input data-i="${i}" data-k="cantidad" type="number" inputmode="numeric" min="1" value="${Number(it.cantidad)||1}"></td>
+      <td class="tprecio" data-l="Precio"><input data-i="${i}" data-k="precio" type="number" inputmode="numeric" value="${Number(it.precio)||0}" placeholder="0"></td>
+      <td class="tdesc" data-l="Desc %"><input data-i="${i}" data-k="descuento" type="number" inputmode="numeric" min="0" max="100" value="${Number(it.descuento)||0}"></td>
       <td class="tdel"><button class="delx" data-del="${i}">×</button></td>
     </tr>`;
   }).join('');
