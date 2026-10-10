@@ -232,6 +232,15 @@
   .preciotbl th:not(:first-child){text-align:center}
   .preciotbl td{padding:6px 6px;border-bottom:1px solid var(--gris2);font-weight:600;font-size:14px}
   .preciotbl td input{text-align:right}
+  @media(max-width:640px){
+    .preciotbl,.preciotbl tbody{display:block;width:100%}
+    .preciotbl thead{display:none}
+    .preciotbl tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;padding:12px 0;border-bottom:1px solid var(--gris2)}
+    .preciotbl td{display:block;padding:0;border:0;font-size:14px}
+    .preciotbl td:first-child{grid-column:1 / -1;font-family:Oswald;font-size:17px;color:var(--tinta)}
+    .preciotbl td[data-l]::before{content:attr(data-l);display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--gris5);margin-bottom:3px;font-weight:700}
+    .preciotbl td input{font-size:16px;padding:10px 12px}
+  }
   .modalact{display:flex;justify-content:space-between;gap:10px;margin-top:18px}
   .toolbar h2{font-size:20px;margin-right:auto}
   .toolbar input{max-width:260px}
@@ -1443,23 +1452,23 @@
       <thead><tr><th>Plan</th><th>125–250</th><th>300–500</th><th>600–1000+</th><th>BT 300–500</th><th>BT 600+</th></tr></thead>
       <tbody>
         <tr><td>Basic</td>
-          <td><input id="pz_125_250_basic" type="number" inputmode="numeric"></td>
-          <td><input id="pz_300_500_basic" type="number" inputmode="numeric"></td>
-          <td><input id="pz_600_1000_basic" type="number" inputmode="numeric"></td>
-          <td><input id="pz_bigtrail_300_basic" type="number" inputmode="numeric"></td>
-          <td><input id="pz_bigtrail_600_basic" type="number" inputmode="numeric"></td></tr>
+          <td data-l="125–250"><input id="pz_125_250_basic" type="number" inputmode="numeric"></td>
+          <td data-l="300–500"><input id="pz_300_500_basic" type="number" inputmode="numeric"></td>
+          <td data-l="600–1000+"><input id="pz_600_1000_basic" type="number" inputmode="numeric"></td>
+          <td data-l="BT 300–500"><input id="pz_bigtrail_300_basic" type="number" inputmode="numeric"></td>
+          <td data-l="BT 600+"><input id="pz_bigtrail_600_basic" type="number" inputmode="numeric"></td></tr>
         <tr><td>Standard</td>
-          <td><input id="pz_125_250_standard" type="number" inputmode="numeric"></td>
-          <td><input id="pz_300_500_standard" type="number" inputmode="numeric"></td>
-          <td><input id="pz_600_1000_standard" type="number" inputmode="numeric"></td>
-          <td><input id="pz_bigtrail_300_standard" type="number" inputmode="numeric"></td>
-          <td><input id="pz_bigtrail_600_standard" type="number" inputmode="numeric"></td></tr>
+          <td data-l="125–250"><input id="pz_125_250_standard" type="number" inputmode="numeric"></td>
+          <td data-l="300–500"><input id="pz_300_500_standard" type="number" inputmode="numeric"></td>
+          <td data-l="600–1000+"><input id="pz_600_1000_standard" type="number" inputmode="numeric"></td>
+          <td data-l="BT 300–500"><input id="pz_bigtrail_300_standard" type="number" inputmode="numeric"></td>
+          <td data-l="BT 600+"><input id="pz_bigtrail_600_standard" type="number" inputmode="numeric"></td></tr>
         <tr><td>Premium</td>
-          <td><input id="pz_125_250_premium" type="number" inputmode="numeric"></td>
-          <td><input id="pz_300_500_premium" type="number" inputmode="numeric"></td>
-          <td><input id="pz_600_1000_premium" type="number" inputmode="numeric"></td>
-          <td><input id="pz_bigtrail_300_premium" type="number" inputmode="numeric"></td>
-          <td><input id="pz_bigtrail_600_premium" type="number" inputmode="numeric"></td></tr>
+          <td data-l="125–250"><input id="pz_125_250_premium" type="number" inputmode="numeric"></td>
+          <td data-l="300–500"><input id="pz_300_500_premium" type="number" inputmode="numeric"></td>
+          <td data-l="600–1000+"><input id="pz_600_1000_premium" type="number" inputmode="numeric"></td>
+          <td data-l="BT 300–500"><input id="pz_bigtrail_300_premium" type="number" inputmode="numeric"></td>
+          <td data-l="BT 600+"><input id="pz_bigtrail_600_premium" type="number" inputmode="numeric"></td></tr>
       </tbody>
     </table>
     <div class="modalact">
@@ -2259,19 +2268,27 @@ async function renderEquipo(){
         <div style="font-size:11px;color:var(--gris3)">${esc(t.email)}</div>
       </div>
       <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${t.rol==='admin'?'var(--rojo)':'var(--panel2)'};color:${t.rol==='admin'?'var(--sobre-acento)':'var(--gris5)'};font-weight:700">${t.rol==='admin'?'ADMIN':'TRAB'}</span>
-      ${!esYo?`<button class="twdel" data-email="${esc(t.email)}" data-nombre="${esc(t.nombre)}" style="background:#fff0f0;color:#dc2626;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">Eliminar</button>`:''}
+      <button class="twkey" data-email="${esc(t.email)}" data-nombre="${esc(t.nombre)}" style="background:var(--panel2);color:var(--tinta);border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🔑 Clave</button>
+      ${!esYo&&t.rol!=='admin'?`<button class="twdel" data-email="${esc(t.email)}" data-nombre="${esc(t.nombre)}" style="background:#fff0f0;color:#dc2626;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">Eliminar</button>`:''}
     </div>`;
   }).join('');
   L.querySelectorAll('.twdel').forEach(b=>b.onclick=()=>eliminarTrabajador(b.dataset.email, b.dataset.nombre));
+  L.querySelectorAll('.twkey').forEach(b=>b.onclick=()=>cambiarClaveTrabajador(b.dataset.email, b.dataset.nombre));
+}
+
+async function cambiarClaveTrabajador(email, nombre){
+  const nueva = prompt('Nueva clave para '+nombre+' (mínimo 6 caracteres):');
+  if (nueva===null) return;
+  if (nueva.length < 6){ toast('La clave debe tener al menos 6 caracteres','bad'); return; }
+  const { error } = await db.rpc('pm_cambiar_clave', { p_email: email, p_clave: nueva });
+  if (error){ toast('No se pudo cambiar la clave: '+error.message,'bad'); return; }
+  toast('Clave de '+nombre+' actualizada. Ya puede entrar con la nueva.','ok');
 }
 
 async function eliminarTrabajador(email, nombre){
-  if (!confirm('¿Eliminar a '+nombre+'? Esta acción no se puede deshacer.')) return;
-  // 1) eliminar de premium_trabajadores
-  const { error } = await db.from('premium_trabajadores').delete().eq('email', email);
-  if (error){ toast('Error: '+error.message,'bad'); return; }
-  // 2) eliminar de auth.users via edge function (no se puede desde el client)
-  // por ahora solo se borra de la tabla, la cuenta auth queda huérfana pero no puede entrar
+  if (!confirm('¿Eliminar a '+nombre+'? Ya no podrá entrar. Lo que tenía tomado queda disponible para el resto. Esta acción no se puede deshacer.')) return;
+  const { error } = await db.rpc('pm_eliminar_trabajador', { p_email: email });
+  if (error){ toast('No se pudo eliminar: '+error.message,'bad'); return; }
   toast(nombre+' eliminado del equipo','ok');
   await renderEquipo();
 }
@@ -2287,6 +2304,13 @@ $('#twSave').onclick = async ()=>{
   if (!nombre || !rutRaw){ err.textContent='Nombre y RUT son obligatorios'; err.classList.remove('hidden'); return; }
 
   const rut = rutRaw.replace(/[.\-\s]/g,'').toUpperCase();
+  if (!/^\d{7,8}[\dK]$/.test(rut)){
+    err.textContent='RUT inválido: escríbelo completo con su dígito verificador (ej: 12.345.678-9)'; err.classList.remove('hidden'); return;
+  }
+  // dígito verificador (módulo 11): si no coincide, se avisa pero se deja continuar
+  { let suma=0, mul=2; for (let i=rut.length-2; i>=0; i--){ suma += Number(rut[i])*mul; mul = mul===7 ? 2 : mul+1; }
+    const r = 11-(suma%11), dvOk = r===11 ? '0' : r===10 ? 'K' : String(r);
+    if (dvOk !== rut.slice(-1) && !confirm('El dígito verificador de ese RUT no coincide (debería terminar en '+dvOk+').\n\n¿Crear el usuario igual?')) return; }
   const clave = rut.slice(0, -1); // RUT sin dígito verificador
   const email = rut.toLowerCase() + '@' + CONFIG.authDomain;
 
