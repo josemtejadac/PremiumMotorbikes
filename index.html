@@ -2153,20 +2153,17 @@ async function enviarCitaWaConPdf(c){
   if (!telWa){ toast('Esta cita no tiene un WhatsApp válido','bad'); return; }
   const doc = await construirCitaPDFDoc(citaDbAPdf(c));
   const base = `Hola ${c.cliente_nombre||''}, te escribimos de Premium Motorbikes por tu cita ${c.folio} del ${citaFechaLabel(c.fecha,c.hora)}.`;
-  let url = null;
-  try{
-    url = await subirPdfPublico(doc, 'citas', c.folio);
-    // deja guardado el PDF vigente: el recordatorio por correo lo adjuntará con la fecha/hora actualizada
-    try{ await db.rpc('pm_guardar_pdf_cita', { p_folio: c.folio, p_url: url }); }catch(e){}
-  }catch(e){}
-  if (url){
-    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(base+'\nAquí está tu comprobante actualizado en PDF (disponible por 7 días):\n'+url)}`,'_blank');
-    toast('Se abrió el chat del cliente con el PDF incluido','ok');
-  } else {
-    doc.save(`Cita_PremiumMotorbikes_${c.folio||''}.pdf`.replace(/\s+/g,'_'));
-    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(base+' Te adjuntamos el PDF actualizado.')}`,'_blank');
-    toast('No se pudo subir el PDF: se descargó, adjúntalo en el chat con 📎','bad');
-  }
+  // deja guardado el PDF vigente para el recordatorio por correo (con la fecha/hora actualizada);
+  // se borra solo cuando la cita ya pasó
+  subirPdfPublico(doc, 'citas', c.folio)
+    .then(u=>db.rpc('pm_guardar_pdf_cita', { p_folio: c.folio, p_url: u }))
+    .catch(()=>{});
+  const filename = `Cita_PremiumMotorbikes_${c.folio||''}.pdf`.replace(/\s+/g,'_');
+  const txt = base+' Te adjuntamos el PDF actualizado.';
+  if (await compartirPdfMovil(doc, filename, txt, 'Cita Premium Motorbikes', telWa)) return;
+  doc.save(filename);
+  window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
+  toast('PDF descargado. Adjúntalo en el chat del cliente con 📎','ok');
 }
 function renderAgendaLista(citas, vacio){
   const L=$('#agendaLista');
@@ -4518,6 +4515,18 @@ async function enviarComoCliente(){
 function esMovil(){
   return /iPhone|iPad|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints>1 && /Macintosh/.test(navigator.userAgent));
 }
+// En el celular el PDF va como ARCHIVO ADJUNTO real, con el menú de compartir (el trabajador toca el chat
+// del cliente). Devuelve true si ya quedó resuelto (compartido o cancelado), false si hay que usar el enlace.
+async function compartirPdfMovil(doc, filename, texto, titulo, tel){
+  if (!esMovil() || !navigator.canShare) return false;
+  try{
+    const file = new File([doc.output('blob')], filename, {type:'application/pdf'});
+    if (!navigator.canShare({files:[file]})) return false;
+    toast('Elige en WhatsApp el chat de +'+tel,'ok');
+    await navigator.share({files:[file], text:texto, title:titulo});
+    return true;
+  }catch(e){ return !!(e && e.name==='AbortError'); }
+}
 function normTelWa(t){
   const tel = (t||'').replace(/\D/g,'');
   if (!tel) return null;
@@ -4530,20 +4539,13 @@ async function enviarComoTaller(){
   if (!telWa || telRaw.replace(/\D/g,'').length<8){ toast('Escribe el WhatsApp del cliente','bad'); $('#cTelCliente').focus(); return; }
   const nom = cot.agNombre ? cot.agNombre.split(' ')[0]+', ' : '';
   const { doc, filename } = await cotizaPDF();
-  // WhatsApp no deja adjuntar un archivo por enlace, así que el PDF se sube y va como enlace en el
-  // mensaje: el cliente lo abre con un toque, sin que el trabajador tenga que adjuntar nada.
-  let url = null;
-  try{ url = await subirPdfPublico(doc, 'cotizaciones', 'Cotizacion'); }catch(e){}
-  if (url){
-    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nAquí está tu cotización en PDF (disponible por 7 días):\n${url}`;
-    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
-    toast('Se abrió el chat del cliente con el PDF incluido','ok');
-  } else {
-    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe adjuntamos la cotización de tu mantención.`;
-    doc.save(filename);
-    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
-    toast('No se pudo subir el PDF: se descargó, adjúntalo en el chat con 📎','bad');
-  }
+  const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe adjuntamos la cotización de tu mantención.`;
+  // Celular: el PDF va como archivo adjunto de una vez (menú de compartir).
+  if (await compartirPdfMovil(doc, filename, txt, 'Cotización Premium Motorbikes', telWa)) return;
+  // PC: se descarga el PDF y se abre el chat de ese número para adjuntarlo a mano.
+  doc.save(filename);
+  window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
+  toast('PDF descargado. Adjúntalo en el chat del cliente con 📎','ok');
 }
 $('#cEnviar').onclick = async ()=>{
   const btn=$('#cEnviar'); const orig=btn.innerHTML;
@@ -4931,18 +4933,12 @@ async function enviarAgendaComoTaller(){
   if (!telWa || $('#cAgTelCliente').value.replace(/\D/g,'').length<8){ toast('Escribe el WhatsApp del cliente','bad'); $('#cAgTelCliente').focus(); return; }
   const nom = citaActual.nombre ? citaActual.nombre.split(' ')[0]+', ' : '';
   const doc = await construirCitaPDFDoc(citaActual);
-  let url = null;
-  try{ url = await subirPdfPublico(doc, 'citas', citaActual.folio); }catch(e){}
-  if (url){
-    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.\nAquí está tu comprobante en PDF (disponible por 7 días):\n${url}`;
-    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
-    toast('Se abrió el chat del cliente con el PDF incluido','ok');
-  } else {
-    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.`;
-    doc.save(`Cita_PremiumMotorbikes_${citaActual.folio||''}.pdf`.replace(/\s+/g,'_'));
-    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
-    toast('No se pudo subir el PDF: se descargó, adjúntalo en el chat con 📎','bad');
-  }
+  const filename = `Cita_PremiumMotorbikes_${citaActual.folio||''}.pdf`.replace(/\s+/g,'_');
+  const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.`;
+  if (await compartirPdfMovil(doc, filename, txt, 'Confirmación de hora Premium Motorbikes', telWa)) return;
+  doc.save(filename);
+  window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
+  toast('PDF descargado. Adjúntalo en el chat del cliente con 📎','ok');
 }
 $('#cAgendaWa').onclick = async ()=>{
   const btn=$('#cAgendaWa'); const orig=btn.innerHTML;
