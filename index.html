@@ -2160,7 +2160,7 @@ async function enviarCitaWaConPdf(c){
     try{ await db.rpc('pm_guardar_pdf_cita', { p_folio: c.folio, p_url: url }); }catch(e){}
   }catch(e){}
   if (url){
-    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(base+'\nAquí está tu comprobante actualizado en PDF:\n'+url)}`,'_blank');
+    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(base+'\nAquí está tu comprobante actualizado en PDF (disponible por 7 días):\n'+url)}`,'_blank');
     toast('Se abrió el chat del cliente con el PDF incluido','ok');
   } else {
     doc.save(`Cita_PremiumMotorbikes_${c.folio||''}.pdf`.replace(/\s+/g,'_'));
@@ -4535,7 +4535,7 @@ async function enviarComoTaller(){
   let url = null;
   try{ url = await subirPdfPublico(doc, 'cotizaciones', 'Cotizacion'); }catch(e){}
   if (url){
-    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nAquí está tu cotización en PDF:\n${url}`;
+    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nAquí está tu cotización en PDF (disponible por 7 días):\n${url}`;
     window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
     toast('Se abrió el chat del cliente con el PDF incluido','ok');
   } else {
@@ -4934,7 +4934,7 @@ async function enviarAgendaComoTaller(){
   let url = null;
   try{ url = await subirPdfPublico(doc, 'citas', citaActual.folio); }catch(e){}
   if (url){
-    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.\nAquí está tu comprobante en PDF:\n${url}`;
+    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.\nAquí está tu comprobante en PDF (disponible por 7 días):\n${url}`;
     window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
     toast('Se abrió el chat del cliente con el PDF incluido','ok');
   } else {
