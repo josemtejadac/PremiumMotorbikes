@@ -1578,8 +1578,13 @@
       <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input id="mwMarca" placeholder="Marca (ej: Ducati)" style="padding:10px;border-radius:8px;border:1px solid var(--gris2);font-size:13px">
         <input id="mwModelo" placeholder="Modelo (ej: Panigale V4)" style="padding:10px;border-radius:8px;border:1px solid var(--gris2);font-size:13px">
-        <input id="mwCc" type="number" placeholder="CC (ej: 1103)" style="padding:10px;border-radius:8px;border:1px solid var(--gris2);font-size:13px">
-        <button id="mwSave" class="btn-save" style="padding:10px;font-size:13px">Agregar</button>
+        <input id="mwCc" type="number" inputmode="numeric" placeholder="CC (ej: 1103)" style="padding:10px;border-radius:8px;border:1px solid var(--gris2);font-size:13px">
+        <select id="mwTipo" style="padding:10px;border-radius:8px;border:1px solid var(--gris2);font-size:13px;background:var(--panel);color:var(--tinta)">
+          <option value="normal">Moto normal (calle / deportiva)</option>
+          <option value="bigtrail">Big Trail / Adventure / Enduro</option>
+        </select>
+        <p id="mwPrev" style="grid-column:1/-1;margin:0;font-size:12.5px;color:var(--gris5)">Categoría en el cotizador: —</p>
+        <button id="mwSave" class="btn-save" style="grid-column:1/-1;padding:11px;font-size:14px">Agregar modelo</button>
       </div>
     </details>
     <div class="modalact" style="margin-top:14px">
@@ -1683,6 +1688,12 @@ const PLAN_META = {
   premium:  { nombre:"Premium Service",  cls:"prem",  tag:"COMPLETO", intervalo:"Cada 10.000 – 15.000 km, anual o por uso exhaustivo" }
 };
 const CAT_LABEL = { "125_250":"125 – 250 cc", "300_500":"300 – 500 cc", "600_1000":"600 – 1000+ cc", "bigtrail_300":"Bigtrail 300–500 cc", "bigtrail_600":"Bigtrail 600–1000+ cc" };
+// categoría del cotizador según cilindrada y tipo de moto (no hay Big Trail de 125–250: usa 125–250)
+function catDeMoto(cc, tipo){
+  cc = Number(cc)||0;
+  if (tipo==='bigtrail' && cc>250) return cc<=500 ? 'bigtrail_300' : 'bigtrail_600';
+  return cc<=250 ? '125_250' : cc<=500 ? '300_500' : '600_1000';
+}
 const TIEMPO_EST = {
   basic:    { "125_250":"2 hrs","300_500":"2.5 hrs","600_1000":"3 hrs","bigtrail_300":"3 hrs","bigtrail_600":"3.5 hrs" },
   standard: { "125_250":"2.5 hrs","300_500":"3 hrs","600_1000":"3 hrs","bigtrail_300":"3.5 hrs","bigtrail_600":"4 hrs" },
@@ -2141,10 +2152,21 @@ async function enviarCitaWaConPdf(c){
   const telWa = normTelWa(c.cliente_telefono);
   if (!telWa){ toast('Esta cita no tiene un WhatsApp válido','bad'); return; }
   const doc = await construirCitaPDFDoc(citaDbAPdf(c));
-  doc.save(`Cita_PremiumMotorbikes_${c.folio||''}.pdf`.replace(/\s+/g,'_'));
-  const msg = `Hola ${c.cliente_nombre||''}, te escribimos de Premium Motorbikes por tu cita ${c.folio} del ${citaFechaLabel(c.fecha,c.hora)}. Te adjuntamos el PDF actualizado.`;
-  window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`,'_blank');
-  toast('Se abrió el chat y se descargó el PDF: adjúntalo ahí con 📎','ok');
+  const base = `Hola ${c.cliente_nombre||''}, te escribimos de Premium Motorbikes por tu cita ${c.folio} del ${citaFechaLabel(c.fecha,c.hora)}.`;
+  let url = null;
+  try{
+    url = await subirPdfPublico(doc, 'citas', c.folio);
+    // deja guardado el PDF vigente: el recordatorio por correo lo adjuntará con la fecha/hora actualizada
+    try{ await db.rpc('pm_guardar_pdf_cita', { p_folio: c.folio, p_url: url }); }catch(e){}
+  }catch(e){}
+  if (url){
+    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(base+'\nAquí está tu comprobante actualizado en PDF:\n'+url)}`,'_blank');
+    toast('Se abrió el chat del cliente con el PDF incluido','ok');
+  } else {
+    doc.save(`Cita_PremiumMotorbikes_${c.folio||''}.pdf`.replace(/\s+/g,'_'));
+    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(base+' Te adjuntamos el PDF actualizado.')}`,'_blank');
+    toast('No se pudo subir el PDF: se descargó, adjúntalo en el chat con 📎','bad');
+  }
 }
 function renderAgendaLista(citas, vacio){
   const L=$('#agendaLista');
@@ -2436,7 +2458,7 @@ function renderMotosAdmin(){
         <button class="mw-delmarca" data-marca="${esc(marca)}" style="background:#fff0f0;color:#dc2626;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer">Eliminar marca</button>
       </div>
       <div style="padding:4px 0 8px 30px;display:flex;flex-wrap:wrap;gap:4px">
-        ${modelos.map(m=>`<span style="font-size:11px;padding:3px 8px;background:var(--panel2);border-radius:6px;display:inline-flex;align-items:center;gap:4px">${esc(m.modelo)} <small style="color:var(--gris5)">${m.cc}cc</small> <button class="mw-delmod" data-id="${m.id}" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0 2px">×</button></span>`).join('')}
+        ${modelos.map(m=>`<span style="font-size:11px;padding:3px 8px;background:var(--panel2);border-radius:6px;display:inline-flex;align-items:center;gap:4px">${esc(m.modelo)} <small style="color:var(--gris5)">${m.cc}cc</small> <button class="mw-bt" data-id="${m.id}" title="${m.tipo==='bigtrail'?'Big Trail: toca para quitar':'Toca para marcar como Big Trail'}" style="border:1px solid ${m.tipo==='bigtrail'?'var(--acento-txt)':'var(--gris2)'};background:${m.tipo==='bigtrail'?'var(--tint-acento)':'transparent'};color:${m.tipo==='bigtrail'?'var(--acento-txt)':'var(--gris5)'};border-radius:5px;font-size:10px;font-weight:700;padding:1px 5px;cursor:pointer">${m.tipo==='bigtrail'?'BIG TRAIL':'BT'}</button> <button class="mw-delmod" data-id="${m.id}" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0 2px">×</button></span>`).join('')}
       </div>
     </div>`;
   }).join('');
@@ -2446,6 +2468,7 @@ function renderMotosAdmin(){
   L.querySelectorAll('.mw-down').forEach(b=>b.onclick=()=>moverMarca(marcas,Number(b.dataset.idx),1));
   L.querySelectorAll('.mw-delmarca').forEach(b=>b.onclick=()=>eliminarMarca(b.dataset.marca));
   L.querySelectorAll('.mw-delmod').forEach(b=>b.onclick=()=>eliminarModelo(b.dataset.id));
+  L.querySelectorAll('.mw-bt').forEach(b=>b.onclick=()=>cambiarTipoModelo(b.dataset.id));
 }
 
 function moverMarca(marcas, idx, dir){
@@ -2475,15 +2498,35 @@ async function eliminarModelo(id){
 }
 
 $('#mwSave').onclick = async ()=>{
-  const marca=$('#mwMarca').value.trim(), modelo=$('#mwModelo').value.trim(), cc=Number($('#mwCc').value);
+  const marca=$('#mwMarca').value.trim(), modelo=$('#mwModelo').value.trim(), cc=Number($('#mwCc').value), tipo=$('#mwTipo').value;
   if(!marca||!modelo||!cc){ toast('Completa marca, modelo y CC','bad'); return; }
-  const { data,error } = await db.from('premium_motos').insert({marca,modelo,cc,activo:true}).select().single();
+  if (allMotos.some(m=>m.marca.toLowerCase()===marca.toLowerCase() && m.modelo.toLowerCase()===modelo.toLowerCase())){
+    toast('Ese modelo ya existe en '+marca,'bad'); return;
+  }
+  const { data,error } = await db.from('premium_motos').insert({marca,modelo,cc,tipo,activo:true}).select().single();
   if(error){ toast('Error: '+error.message,'bad'); return; }
   allMotos.push(data);
-  $('#mwMarca').value=''; $('#mwModelo').value=''; $('#mwCc').value='';
+  $('#mwModelo').value=''; $('#mwCc').value=''; $('#mwTipo').value='normal'; mwPreview();
   renderMotosAdmin();
-  toast(marca+' '+modelo+' agregado','ok');
+  toast(marca+' '+modelo+' agregado en '+CAT_LABEL[catDeMoto(cc,tipo)],'ok');
 };
+function mwPreview(){
+  const cc=Number($('#mwCc').value), tipo=$('#mwTipo').value;
+  $('#mwPrev').innerHTML = cc
+    ? 'Categoría en el cotizador: <b>'+esc(CAT_LABEL[catDeMoto(cc,tipo)])+'</b>'+(tipo==='bigtrail'&&cc<=250?' · los Big Trail hasta 250 cc usan la categoría 125–250':'')
+    : 'Categoría en el cotizador: —';
+}
+$('#mwCc').addEventListener('input', mwPreview);
+$('#mwTipo').addEventListener('change', mwPreview);
+async function cambiarTipoModelo(id){
+  const m = allMotos.find(x=>String(x.id)===String(id)); if(!m) return;
+  const nuevo = m.tipo==='bigtrail' ? 'normal' : 'bigtrail';
+  const { error } = await db.from('premium_motos').update({tipo:nuevo}).eq('id',id);
+  if (error){ toast('No se pudo cambiar: '+error.message,'bad'); return; }
+  m.tipo = nuevo;
+  renderMotosAdmin();
+  toast(m.marca+' '+m.modelo+(nuevo==='bigtrail'?' ahora es Big Trail':' ya no es Big Trail'),'ok');
+}
 $('#trabClose').onclick = ()=> $('#trabModal').classList.remove('open');
 $('#trabModal').onclick = e=>{ if(e.target.id==='trabModal') $('#trabModal').classList.remove('open'); };
 
@@ -3217,7 +3260,7 @@ $('#waPlanillaBtn').onclick=async()=>{
   const file=new File([blob], `PremiumMotorbikes_${current.folio}.pdf`, {type:'application/pdf'});
   const nom = current.cliente_nombre? current.cliente_nombre.split(' ')[0]+', ' : '';
   const txt=`Hola ${nom}aquí tienes la planilla de servicio de tu motocicleta ${current.moto_patente||''} · Premium Motorbikes 🏍️`;
-  if (navigator.canShare && navigator.canShare({files:[file]})){
+  if (esMovil() && navigator.canShare && navigator.canShare({files:[file]})){
     try{ await navigator.share({files:[file], text:txt, title:'Planilla Premium Motorbikes'}); return; }
     catch(e){ if(e && e.name==='AbortError') return; }
   }
@@ -4203,9 +4246,9 @@ function renderModelos(){
       const m = motosCat.find(x=>x.id===b.dataset.id);
       cot.modelo = m.modelo; cot.cc = m.cc;
       $('#cManualBox').classList.add('hidden');
-      const cat = m.cc <= 250 ? '125_250' : m.cc <= 500 ? '300_500' : '600_1000';
+      const cat = catDeMoto(m.cc, m.tipo);
       setCilUI(cat);
-      $('#cHint').textContent = `Tu ${m.marca} ${m.modelo} es de ${m.cc} cc. Si no coincide, puedes cambiarlo.`;
+      $('#cHint').textContent = `Tu ${m.marca} ${m.modelo} es de ${m.cc} cc${m.tipo==='bigtrail'?' (Big Trail)':''}. Si no coincide, puedes cambiarlo.`;
     }
     $('#cCilBox').classList.remove('hidden');
     actualizarTotalCot();
@@ -4457,11 +4500,11 @@ async function enviarComoCliente(){
   const { doc, filename } = await cotizaPDF();
   const blob = doc.output('blob');
   const file = new File([blob], filename, {type:'application/pdf'});
-  if (navigator.canShare && navigator.canShare({files:[file], text:msg})){
+  if (esMovil() && navigator.canShare && navigator.canShare({files:[file], text:msg})){
     try{ await navigator.share({files:[file], text:msg, title:'Cotización Premium Motorbikes'}); return; }
     catch(e){ if (e && e.name==='AbortError') return; }
   }
-  if (navigator.canShare && navigator.canShare({files:[file]})){
+  if (esMovil() && navigator.canShare && navigator.canShare({files:[file]})){
     try{ await navigator.share({files:[file], title:'Cotización Premium Motorbikes'}); return; }
     catch(e){ if (e && e.name==='AbortError') return; }
   }
@@ -4469,6 +4512,11 @@ async function enviarComoCliente(){
   doc.save(filename);
   window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`,'_blank');
   toast('Descargué la cotización: adjúntala en el chat con el taller','ok');
+}
+// En PC, Chrome/Edge dicen que pueden "compartir archivos" y abren el panel de Windows en vez de descargar.
+// El menú de compartir solo se usa en celulares y tablets.
+function esMovil(){
+  return /iPhone|iPad|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints>1 && /Macintosh/.test(navigator.userAgent));
 }
 function normTelWa(t){
   const tel = (t||'').replace(/\D/g,'');
@@ -4481,14 +4529,21 @@ async function enviarComoTaller(){
   const telWa = normTelWa(telRaw);
   if (!telWa || telRaw.replace(/\D/g,'').length<8){ toast('Escribe el WhatsApp del cliente','bad'); $('#cTelCliente').focus(); return; }
   const nom = cot.agNombre ? cot.agNombre.split(' ')[0]+', ' : '';
-  const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe adjuntamos la cotización de tu mantención.`;
   const { doc, filename } = await cotizaPDF();
-  // Ningún navegador permite adjuntar un archivo a un chat de WhatsApp específico por enlace
-  // (ni en celular ni en PC), así que abrimos directo ESE chat con el mensaje listo y
-  // descargamos el PDF para adjuntarlo ahí mismo con el botón 📎.
-  doc.save(filename);
-  window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
-  toast('Se abrió el chat del cliente y se descargó el PDF: adjúntalo ahí con 📎','ok');
+  // WhatsApp no deja adjuntar un archivo por enlace, así que el PDF se sube y va como enlace en el
+  // mensaje: el cliente lo abre con un toque, sin que el trabajador tenga que adjuntar nada.
+  let url = null;
+  try{ url = await subirPdfPublico(doc, 'cotizaciones', 'Cotizacion'); }catch(e){}
+  if (url){
+    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nAquí está tu cotización en PDF:\n${url}`;
+    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
+    toast('Se abrió el chat del cliente con el PDF incluido','ok');
+  } else {
+    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe adjuntamos la cotización de tu mantención.`;
+    doc.save(filename);
+    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
+    toast('No se pudo subir el PDF: se descargó, adjúntalo en el chat con 📎','bad');
+  }
 }
 $('#cEnviar').onclick = async ()=>{
   const btn=$('#cEnviar'); const orig=btn.innerHTML;
@@ -4610,8 +4665,46 @@ async function cotizaPDF(){
   doc.setTextColor(...NEGRO); doc.text(money(totalCot()),RX-4,y+totH/2,{align:'right',baseline:'middle'});
   y+=totH+9;
 
+  const asegurar = (h)=>{ if (y+h>286){ doc.addPage(); y=18; } };   // salto de página si no cabe
+
+  /* ---------- qué incluye el servicio ---------- */
+  {
+    let lineas = null;
+    if (cot.tipoServ!=='servicio' && cot.plan && PLAN_ITEMS[cot.plan]) lineas = PLAN_ITEMS[cot.plan].slice();
+    else if (cot.tipoServ==='servicio' && cot.servicio){
+      const prod = productos.find(x=>x.id===cot.servicio.id);
+      if (prod && prod.descripcion) lineas = [prod.descripcion];
+    }
+    if (lineas && lineas.length){
+      const colW2=(W-M*2-6)/2;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      const envueltas = lineas.map(t=>doc.splitTextToSize(String(t), colW2-8));
+      const mitad = Math.ceil(envueltas.length/2);
+      const cols = [envueltas.slice(0,mitad), envueltas.slice(mitad)];
+      const altoCol = a => a.reduce((s,l)=>s+l.length*4+1.8,0);
+      const hCuerpo = Math.max(altoCol(cols[0]), altoCol(cols[1]));
+      asegurar(hCuerpo+16);
+      doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...NEGRO);
+      doc.text(cot.tipoServ==='servicio' ? 'QUÉ INCLUYE ESTE SERVICIO' : 'QUÉ INCLUYE TU '+(PLAN_META[cot.plan]?PLAN_META[cot.plan].nombre.toUpperCase():'SERVICIO'), M, y+4);
+      doc.setDrawColor(...VERDE); doc.setLineWidth(0.8); doc.line(M,y+6,M+34,y+6);
+      y += 11;
+      cols.forEach((items,ci)=>{
+        let cy=y+2; const cx=M+ci*(colW2+6);
+        items.forEach(lns=>{
+          doc.setFillColor(...VERDE); doc.circle(cx+1.8,cy-1.3,1.5,'F');
+          doc.setFillColor(...NEGRO); doc.circle(cx+1.8,cy-1.3,0.6,'F');
+          doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(40);
+          doc.text(lns, cx+6, cy);
+          cy += lns.length*4+1.8;
+        });
+      });
+      y += hCuerpo + 8;
+    }
+  }
+
   /* ---------- próxima mantención (según cilindrada, solo si es mantención) ---------- */
   if (cot.tipoServ!=='servicio'){
+    asegurar(32);
     const rango=rangoProxMant(cot.cc, cot.categoria);
     const boxH=22;
     doc.setDrawColor(...VERDE); doc.setLineWidth(0.5); doc.setFillColor(250,255,238);
@@ -4628,6 +4721,7 @@ async function cotizaPDF(){
   }
 
   /* ---------- nota ---------- */
+  asegurar(30);
   const notaTxt='Valor referencial. El precio final puede variar si la motocicleta requiere trabajos o repuestos adicionales, lo que se informará antes de realizarlos.';
   const notaLines=doc.splitTextToSize(notaTxt, W-M*2-26);
   const notaH=8+notaLines.length*4.2+7;
@@ -4645,6 +4739,7 @@ async function cotizaPDF(){
   y+=notaH+9;
 
   /* ---------- horario ---------- */
+  asegurar(18);
   const horarioParts=(CONFIG.taller.horario||'').split('·').map(s=>s.trim()).filter(Boolean);
   doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...NEGRO);
   doc.text('HORARIO DE ATENCIÓN',M,y);
@@ -4666,6 +4761,7 @@ async function cotizaPDF(){
   y+=15;
 
   /* ---------- footer ---------- */
+  asegurar(32);
   const footH=26;
   doc.setFillColor(...VERDE); doc.rect(0,y,W,1.2,'F');
   doc.setFillColor(...NEGRO); doc.rect(0,y+1.2,W,footH,'F');
@@ -4697,7 +4793,8 @@ $('#cPdf').onclick=async()=>{
     const { doc, filename } = await cotizaPDF();
     const blob = doc.output('blob');
     const file = new File([blob], filename, {type:'application/pdf'});
-    if (navigator.canShare && navigator.canShare({files:[file]})){
+    // en celular se abre el menú de compartir; en PC siempre se descarga directo
+    if (esMovil() && navigator.canShare && navigator.canShare({files:[file]})){
       try{ await navigator.share({files:[file], title:'Cotización Premium Motorbikes'}); return; }
       catch(e){ if (e && e.name==='AbortError') return; }
     }
@@ -4833,12 +4930,19 @@ async function enviarAgendaComoTaller(){
   const telWa = normTelWa($('#cAgTelCliente').value);
   if (!telWa || $('#cAgTelCliente').value.replace(/\D/g,'').length<8){ toast('Escribe el WhatsApp del cliente','bad'); $('#cAgTelCliente').focus(); return; }
   const nom = citaActual.nombre ? citaActual.nombre.split(' ')[0]+', ' : '';
-  const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.`;
   const doc = await construirCitaPDFDoc(citaActual);
-  const filename = `Cita_PremiumMotorbikes_${citaActual.folio||''}.pdf`.replace(/\s+/g,'_');
-  doc.save(filename);
-  window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
-  toast('Se abrió el chat del cliente y se descargó el PDF: adjúntalo ahí con 📎','ok');
+  let url = null;
+  try{ url = await subirPdfPublico(doc, 'citas', citaActual.folio); }catch(e){}
+  if (url){
+    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.\nAquí está tu comprobante en PDF:\n${url}`;
+    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
+    toast('Se abrió el chat del cliente con el PDF incluido','ok');
+  } else {
+    const txt = `Hola ${nom}bienvenido a *Premium Motorbikes* 🏍️\nTe confirmamos tu hora agendada, N° de cita: ${citaActual.folio}.`;
+    doc.save(`Cita_PremiumMotorbikes_${citaActual.folio||''}.pdf`.replace(/\s+/g,'_'));
+    window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(txt)}`,'_blank');
+    toast('No se pudo subir el PDF: se descargó, adjúntalo en el chat con 📎','bad');
+  }
 }
 $('#cAgendaWa').onclick = async ()=>{
   const btn=$('#cAgendaWa'); const orig=btn.innerHTML;
@@ -4937,18 +5041,21 @@ async function citaPDF(c){
   const doc = await construirCitaPDFDoc(c);
   doc.save(`Cita_PremiumMotorbikes_${c.folio||''}.pdf`.replace(/\s+/g,'_'));
 }
+// sube un PDF a una carpeta pública del almacenamiento y devuelve su enlace (lanza error si falla)
+async function subirPdfPublico(doc, carpeta, nombre){
+  const unico = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const path = `${carpeta}/${String(nombre||'doc').replace(/[^A-Za-z0-9_-]/g,'_')}-${unico}.pdf`;
+  const { error } = await db.storage.from(CONFIG.bucket).upload(path, doc.output('blob'), {cacheControl:'3600', upsert:false, contentType:'application/pdf'});
+  if (error) throw error;
+  return db.storage.from(CONFIG.bucket).getPublicUrl(path).data.publicUrl;
+}
 async function subirCitaPDF(c){
   if (!c || !c.folio) return;
   try{
     const doc = await construirCitaPDFDoc(c);
-    const blob = doc.output('blob');
-    const path = `citas/${c.folio}.pdf`;
-    await db.storage.from(CONFIG.bucket).upload(path, blob, {cacheControl:'3600', upsert:true, contentType:'application/pdf'});
-    const { data } = db.storage.from(CONFIG.bucket).getPublicUrl(path);
-    if (data && data.publicUrl){
-      await db.rpc('pm_guardar_pdf_cita', { p_folio: c.folio, p_url: data.publicUrl });
-    }
-  }catch(e){ /* el recordatorio simplemente no llevará PDF adjunto si esto falla */ }
+    const url = await subirPdfPublico(doc, 'citas', c.folio);
+    await db.rpc('pm_guardar_pdf_cita', { p_folio: c.folio, p_url: url });
+  }catch(e){ /* si falla, el recordatorio simplemente no llevará PDF adjunto */ }
 }
 
 /* ============================================================
