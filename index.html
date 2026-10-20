@@ -3131,6 +3131,9 @@ async function fusionarConUltimoGuardado(){
 }
 async function guardar(silent){
   pullForm();
+  // un trabajador que entrega un servicio que no había tomado queda como quien lo hizo
+  // (los entregados solo los ve el admin y quien los tomó)
+  if (current.estado==='entregado' && !current.tomado_por && !esAdmin()) current.tomado_por = trabajadorNombre;
   if (!silent && !current.moto_patente){ toast('Escribe la patente de la moto antes de guardar','bad'); return false; }
   await fusionarConUltimoGuardado();
   const payload={
