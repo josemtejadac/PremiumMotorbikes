@@ -2115,6 +2115,17 @@ $('#agendaNuevaBtn').onclick = ()=>{
   }
 };
 $('#anFecha').onchange = renderAnHoras;
+// al escribir la patente de una moto que ya se trabajó, se completan sus datos (solo campos vacíos)
+$('#anPatente').addEventListener('blur', async ()=>{
+  const pat = cleanPat($('#anPatente').value);
+  if (pat.length < 4) return;
+  const d = await datosPorPatente(pat);
+  if (!d || !d.cliente_nombre) return;
+  const poner = (id,v)=>{ const el=$('#'+id); if (el && !el.value.trim() && v) el.value=v; };
+  poner('anNombre', d.cliente_nombre); poner('anRut', d.cliente_rut); poner('anTelefono', d.cliente_telefono);
+  poner('anMarca', d.moto_marca); poner('anModelo', d.moto_modelo);
+  toast('Datos cargados desde un servicio anterior de esta moto','ok');
+});
 $('#anGuardar').onclick = async ()=>{
   const fecha=$('#anFecha').value, hora=$('#anHora').value;
   const nombre=$('#anNombre').value.trim(), telefono=$('#anTelefono').value.trim();
@@ -2137,6 +2148,61 @@ $('#anGuardar').onclick = async ()=>{
   btn.disabled=false; btn.textContent='Agendar cita';
   abrirAgenda(); loadAgendaBadge();
 };
+// bloque con lo que cotizó el cliente (o, en citas antiguas, solo el total)
+function detalleCotizacionCita(c){
+  const q = c.cotizacion && Array.isArray(c.cotizacion.items) && c.cotizacion.items.length ? c.cotizacion : null;
+  if (q){
+    return `<div style="margin-top:8px;padding:10px 12px;background:var(--panel2);border-radius:10px;font-size:13px">
+      <div style="font-weight:700;margin-bottom:4px">Lo que cotizó el cliente</div>
+      ${q.items.map(it=>`<div style="display:flex;justify-content:space-between;gap:10px"><span>${esc(it.descripcion||'')}${(Number(it.cantidad)||1)>1?' × '+(Number(it.cantidad)||1):''}</span><span style="white-space:nowrap">${money(itemNeto(it))}</span></div>`).join('')}
+      <div style="display:flex;justify-content:space-between;gap:10px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--gris2);font-weight:700"><span>Total cotizado</span><span>${money(q.total)}</span></div>
+    </div>`;
+  }
+  return c.plan_precio ? `<div style="font-size:13px;margin-top:2px">Total cotizado: <b>${money(c.plan_precio)}</b></div>` : '';
+}
+// servicio nuevo ya cargado con los datos del cliente, la moto y lo que cotizó
+function servicioDesdeCita(c){
+  const q = c.cotizacion || {};
+  let items = Array.isArray(q.items) ? q.items.map(it=>({...it})) : [];
+  const planKey = c.plan_key || q.plan_key || null;
+  if (!items.length && c.plan_nombre){
+    items = [{ ...(planKey?{tipo:'plan'}:{}), descripcion:c.plan_nombre, cantidad:1, precio:Number(c.plan_precio)||0, origen:planKey?'plan':'servicio' }];
+  }
+  const totalQ = q.total!=null ? q.total : (c.plan_precio||0);
+  return {
+    folio: nuevoFolio(), estado:'recibido', categoria: c.categoria || q.categoria || '125_250',
+    plan_key: planKey, plan_nombre: planKey ? ((PLAN_META[planKey]||{}).nombre || c.plan_nombre) : null,
+    checklist: (planKey && PLAN_ITEMS[planKey]) ? PLAN_ITEMS[planKey].slice() : [],
+    items, total: items.reduce((a,it)=>a+itemNeto(it),0),
+    cliente_nombre:c.cliente_nombre||'', cliente_rut:c.cliente_rut||'', cliente_telefono:c.cliente_telefono||'',
+    moto_patente:c.moto_patente||'', moto_marca:c.moto_marca||'', moto_modelo:c.moto_modelo||'',
+    observaciones:`Cita ${c.folio} · ${citaFechaLabel(c.fecha,c.hora)} · Cotización del cliente: ${money(totalQ)}`,
+    retira_nombre:'', retira_rut:'', mostrar_nota_insumos:true, descuento:0,
+    fotos_ingreso:[], fotos_proceso:[], fotos_salida:[], firma_entrega:null,
+    tomado_por: trabajadorNombre
+  };
+}
+// abre el servicio de la cita; si todavía no existe, lo crea con los datos precargados y lo deja enlazado a la cita
+async function abrirServicioDeCita(c){
+  $('#agendaModal').classList.remove('open');
+  let fresh = c;
+  try{ const { data } = await db.from('premium_citas').select('*').eq('id',c.id).maybeSingle(); if (data) fresh = data; }catch(e){}
+  if (fresh.folio_servicio){
+    let s = servicios.find(x=>x.folio===fresh.folio_servicio);
+    if (!s){
+      try{ const { data } = await db.from('premium_servicios').select(COLS_LISTA).eq('folio',fresh.folio_servicio).maybeSingle();
+           if (data){ s = data; servicios.push(s); } }catch(e){}
+    }
+    if (s){ await openEditor(s); return; }
+    toast('Esta cita ya tiene su servicio creado, pero no está disponible para ti','bad');
+    return;
+  }
+  await openEditor(servicioDesdeCita(fresh));
+  if (await guardar(true)){
+    try{ await db.from('premium_citas').update({ folio_servicio: current.folio, updated_at:new Date().toISOString() }).eq('id', fresh.id); }catch(e){}
+    toast('Servicio creado con los datos y la cotización del cliente','ok');
+  }
+}
 // adapta una fila de premium_citas al formato que usa construirCitaPDFDoc (el mismo que arma el cliente al agendar)
 function citaDbAPdf(c){
   return {
@@ -2179,9 +2245,11 @@ function renderAgendaLista(citas, vacio){
       <div style="margin-top:6px;font-size:14px"><b>${esc(c.cliente_nombre)}</b> · ${esc(c.cliente_telefono||'')}</div>
       <div style="font-size:13px;color:var(--gris5)">${esc([c.moto_marca,c.moto_modelo].filter(Boolean).join(' ')||'—')}${c.moto_patente?' · '+esc(c.moto_patente):''}</div>
       <div style="font-size:13px;margin-top:2px">Servicio: <b>${esc(servicio||'—')}</b></div>
+      ${detalleCotizacionCita(c)}
       ${tomada ? `<div style="margin-top:10px;font-size:13px;font-weight:700;color:var(--acento-txt)">✅ Tomado por: ${esc(c.tomado_por||'—')}</div>` : ''}
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         ${tomada ? '' : `<button class="btn-save" data-tomar="${c.id}" style="flex:1 1 140px;padding:11px">Tomar esta cita</button>`}
+        ${(tomada && (esAdmin() || c.tomado_por===trabajadorNombre)) ? `<button class="btn-save" data-abrirserv="${c.id}" style="flex:1 1 140px;padding:11px">${c.folio_servicio?'📂 Ver servicio':'🛠️ Crear servicio con estos datos'}</button>` : ''}
         <button class="btn-wa" data-wapdf="${c.id}" style="flex:1 1 140px;padding:11px">🟢 WhatsApp + PDF</button>
         <button class="btn-ghost" data-editar="${c.id}" style="flex:1 1 140px;padding:11px">✏️ Cambiar hora</button>
         <button class="btn-del" data-cancelar="${c.id}" style="flex:1 1 140px;padding:11px">🗑️ Cancelar</button>
@@ -2236,10 +2304,19 @@ function renderAgendaLista(citas, vacio){
       .eq('id', b.dataset.tomar).eq('estado','pendiente').select();
     if (error || !data || !data.length){
       toast('Alguien más ya tomó esta cita','bad');
-    } else {
-      toast('Cita tomada','ok');
+      abrirAgenda(); loadAgendaBadge();
+      return;
     }
-    abrirAgenda(); loadAgendaBadge();
+    toast('Cita tomada. Cargando el servicio con los datos del cliente…','ok');
+    loadAgendaBadge();
+    try{ await abrirServicioDeCita(data[0]); }
+    catch(e){ toast('La cita quedó tomada, pero no se pudo crear el servicio. Usa "Crear servicio con estos datos".','bad'); abrirAgenda(); }
+  });
+  L.querySelectorAll('[data-abrirserv]').forEach(b=>b.onclick=async()=>{
+    const c = citas.find(x=>x.id===b.dataset.abrirserv); if (!c) return;
+    b.disabled=true;
+    try{ await abrirServicioDeCita(c); }
+    catch(e){ toast('No se pudo abrir el servicio','bad'); b.disabled=false; }
   });
 }
 $('#agendaBtn').onclick = ()=> abrirAgenda();
@@ -2643,6 +2720,20 @@ function pintarTomado(){
 $('#edTomarBtn').onclick = ()=>{ current.tomado_por = trabajadorNombre; pintarTomado(); autoguardar(true); toast('Quedó asignado a ti','ok'); };
 $('#edSoltarBtn').onclick = ()=>{ current.tomado_por = null; pintarTomado(); autoguardar(true); toast('Queda disponible para que otro lo tome','ok'); };
 
+// datos del cliente y la moto del último servicio con esa patente. Usa una función segura de la base
+// porque un trabajador no ve los servicios entregados de otros; si la función aún no existe, busca directo.
+async function datosPorPatente(pat){
+  try{
+    const { data, error } = await db.rpc('pm_datos_por_patente', { p_pat: pat });
+    if (!error) return (data && data[0]) || null;
+  }catch(e){}
+  try{
+    const { data } = await db.from('premium_servicios')
+      .select('cliente_nombre,cliente_rut,cliente_telefono,moto_marca,moto_modelo,moto_patente,categoria,kilometraje')
+      .eq('moto_patente', pat).order('created_at',{ascending:false}).limit(1);
+    return (data && data[0]) || null;
+  }catch(e){ return null; }
+}
 async function openEditor(s){
   current = s ? JSON.parse(JSON.stringify(s)) : {
     folio: nuevoFolio(), estado:'recibido', categoria:'125_250',
@@ -2689,13 +2780,8 @@ async function openEditor(s){
       const pat = cleanPat(this.value);
       if (pat.length < 4) return;
       try {
-        const { data } = await db.from('premium_servicios')
-          .select('cliente_nombre,cliente_rut,cliente_telefono,moto_marca,moto_modelo,moto_patente,categoria,kilometraje')
-          .eq('moto_patente', pat)
-          .order('created_at', {ascending:false})
-          .limit(1);
-        if (data && data[0] && data[0].cliente_nombre) {
-          const prev = data[0];
+        const prev = await datosPorPatente(pat);
+        if (prev && prev.cliente_nombre) {
           if (confirm('Se encontraron datos para esta patente:\n\n' + prev.cliente_nombre + ' · ' + (prev.moto_marca||'') + ' ' + (prev.moto_modelo||'') + '\n\n¿Desea usar estos datos?')) {
             current.cliente_nombre = prev.cliente_nombre;
             current.cliente_rut = prev.cliente_rut || '';
@@ -4387,6 +4473,24 @@ function totalCot(){
   (cot.extras||[]).forEach(e=> t += Number(e.monto)||0);
   return t;
 }
+// copia fiel de lo que cotizó el cliente: queda guardada en la cita para que el taller vea
+// exactamente los productos, extras y precios que se le mostraron (evita confusiones de precio)
+function cotizacionSnapshot(marca, modelo){
+  const items=[];
+  if (cot.tipoServ==='servicio' && cot.servicio){
+    items.push({descripcion:cot.servicio.nombre, cantidad:1, precio:Number(cot.servicio.precio)||0, origen:'servicio'});
+  } else if (cot.plan){
+    const pr=(CONFIG.precios[cot.categoria]||{})[cot.plan]||0;
+    items.push({tipo:'plan', descripcion:((PLAN_META[cot.plan]||{}).nombre||'Plan')+' · '+(CAT_LABEL[cot.categoria]||''), cantidad:1, precio:pr, origen:'plan'});
+  }
+  for (const [id,n] of Object.entries(cot.insumos||{})){
+    const p=productos.find(x=>x.id===id); if(!p||!(n>0)) continue;
+    items.push({descripcion:p.nombre+(p.marca?' ('+p.marca+')':''), cantidad:n, precio:precioFinal(p), origen:'tienda'});
+  }
+  (cot.extras||[]).forEach(e=>{ if(e && (e.desc||e.monto)) items.push({descripcion:e.desc||'Trabajo extra', cantidad:1, precio:Number(e.monto)||0, origen:'manual'}); });
+  return { version:1, categoria:cot.categoria, plan_key:cot.tipoServ==='mantencion'?cot.plan:null, cc:cot.cc||null,
+           marca, modelo, items, total:totalCot(), cotizado_en:new Date().toISOString() };
+}
 function actualizarTotalCot(){ $('#cTotal').textContent = money(totalCot()); guardarCot(); }
 
 function renderResumenCot(){
@@ -4874,7 +4978,7 @@ $('#cConfirmarCita').onclick = async ()=>{
   const modelo = cot.modelo || $('#cModeloManual').value.trim();
   const btn=$('#cConfirmarCita'); btn.disabled=true; btn.textContent='Agendando…';
   try{
-    const { data, error } = await db.rpc('pm_crear_cita', {
+    const params = {
       p_fecha: cot.agFecha, p_hora: cot.agHora, p_tipo: cot.tipoServ,
       p_categoria: cot.categoria,
       p_plan_key: cot.tipoServ==='mantencion' ? cot.plan : null,
@@ -4883,8 +4987,15 @@ $('#cConfirmarCita').onclick = async ()=>{
       p_moto_marca: marca, p_moto_modelo: modelo, p_moto_patente: patente,
       p_cliente_nombre: nombre, p_cliente_rut: rut, p_cliente_email: correo, p_cliente_telefono: telefono,
       p_notas: null
-    });
+    };
+    const { data, error } = await db.rpc('pm_crear_cita', params);
     if (error) throw error;
+    // aparte (y sin poder hacer fallar la reserva): se guarda la cotización completa para que el taller
+    // vea exactamente los productos, extras y precios que el cliente cotizó
+    try{
+      const folioNuevo = data && data[0] && data[0].folio;
+      if (folioNuevo) await db.rpc('pm_guardar_cotizacion', { p_folio: folioNuevo, p_cotizacion: cotizacionSnapshot(marca, modelo) });
+    }catch(e){}
     const cita = (data && data[0]) || null;
     cot.agFolio = cita ? cita.folio : null; guardarCot();
     citaActual = { folio:cot.agFolio, fecha:cot.agFecha, hora:cot.agHora, nombre, rut, correo, telefono, patente,
