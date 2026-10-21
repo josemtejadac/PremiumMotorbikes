@@ -322,6 +322,8 @@
   .plancheck li{font-size:12.5px;padding:3px 0 3px 20px;position:relative;break-inside:avoid}
   .plancheck li::before{content:"✓";position:absolute;left:0;color:var(--verde);font-weight:800}
 
+  .mochk{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11.5px;color:var(--gris5);cursor:pointer}
+  .mochk input{width:auto!important;margin:0;padding:0}
   /* estadísticas */
   .stgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px}
   .stcard{background:var(--panel2);border-radius:12px;padding:12px 14px}
@@ -2666,6 +2668,7 @@ function rangoStats(){
 const RX_MANO_OBRA = /mano de obra|servicio|cambio de|reparaci|mantenci|instalaci|revisi|lavado|vulcaniz|ajuste|diagn[oó]st|rectific|alineaci|balanceo|soldadura|armado|desarme|lubricaci|inspecci|regulaci|limpieza|calibraci|configuraci/i;
 function esManoObra(it){
   const nom = String(it.descripcion||'').trim();
+  if (typeof it.mo==='boolean') return it.mo;   // marcado a mano en el servicio
   if (it.origen==='tienda') return false;
   if (it.tipo==='plan' || it.origen==='plan' || it.origen==='servicio') return true;
   if (statsProductos && statsProductos.has(nom.toLowerCase())) return false;
@@ -3418,14 +3421,15 @@ function renderItems(){
     const isPlan = it.tipo==='plan';
     const ro = itemBloqueado(it) ? ' readonly style="opacity:.7"' : '';
     return `<tr class="${isPlan?'plrow':''}">
-      <td><input data-i="${i}" data-k="descripcion" value="${esc(it.descripcion)}"${ro} placeholder="Detalle del trabajo o repuesto">${isPlan?'<span class="pchip">PLAN</span>':''}</td>
+      <td><input data-i="${i}" data-k="descripcion" value="${esc(it.descripcion)}"${ro} placeholder="Detalle del trabajo o repuesto">${isPlan?'<span class="pchip">PLAN</span>':''}${(isPlan||it.origen==='tienda')?'':`<label class="mochk"><input type="checkbox" data-i="${i}" data-mo="1"${esManoObra(it)?' checked':''}${itemBloqueado(it)?' disabled':''}> 🔧 Es mano de obra</label>`}</td>
       <td class="tcant" data-l="Cant."><input data-i="${i}" data-k="cantidad" type="number" inputmode="numeric" min="1" value="${Number(it.cantidad)||1}"></td>
       <td class="tprecio" data-l="Precio"><input data-i="${i}" data-k="precio" type="number" inputmode="numeric" value="${Number(it.precio)||0}" placeholder="0"${ro}></td>
       <td class="tdesc" data-l="Desc %"><input data-i="${i}" data-k="descuento" type="number" inputmode="numeric" min="0" max="100" value="${Number(it.descuento)||0}"${ro}></td>
       <td class="tdel">${itemBorrable(it)?`<button class="delx" data-del="${i}">×</button>`:''}</td>
     </tr>`;
   }).join('');
-  B.querySelectorAll('input').forEach(inp=>inp.oninput=()=>{
+  B.querySelectorAll('input[data-mo]').forEach(cb=>cb.onchange=()=>{ current.items[+cb.dataset.i].mo = cb.checked; });
+  B.querySelectorAll('input:not([data-mo])').forEach(inp=>inp.oninput=()=>{
     const i=+inp.dataset.i, k=inp.dataset.k;
     current.items[i][k] = k==='precio' ? (parseInt(inp.value)||0)
                         : k==='cantidad' ? (parseInt(inp.value)||1)
