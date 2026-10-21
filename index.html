@@ -2483,27 +2483,32 @@ async function generarExcel(){
 
     msg.textContent='Armando el archivo…';
     await cargarExcelJS();
+    await cargarNombresProductos();
+    const mano = new Map(filas.map(s=>[s.id, clasificarItems(s)]));   // mano de obra y repuestos/insumos de cada servicio
     const wb=new ExcelJS.Workbook(); wb.creator='Premium Motorbikes'; wb.created=new Date();
     const MONEDA='"$"#,##0', FECHA='dd-mm-yyyy hh:mm';
 
     // --- Hoja 1: resumen por trabajador
     const wr=wb.addWorksheet('Resumen');
     wr.columns=[{header:'Trabajador',key:'t',width:30},{header:'Servicios',key:'n',width:12},{header:'Entregados',key:'e',width:13},
-      {header:'En curso',key:'c',width:12},{header:'Total vendido',key:'v',width:18},{header:'Promedio por servicio',key:'p',width:22}];
+      {header:'En curso',key:'c',width:12},{header:'Mano de obra',key:'mo',width:18},{header:'Repuestos e insumos',key:'ri',width:20},
+      {header:'Total vendido',key:'v',width:18},{header:'Promedio por servicio',key:'p',width:22}];
     const agr={};
-    filas.forEach(s=>{ const k=responsable(s); const a=agr[k]||(agr[k]={n:0,e:0,v:0}); a.n++; if(s.estado==='entregado') a.e++; a.v+=Number(s.total)||0; });
-    let tn=0,te=0,tv=0;
-    Object.keys(agr).sort().forEach(k=>{ const a=agr[k]; tn+=a.n; te+=a.e; tv+=a.v;
-      wr.addRow({t:k,n:a.n,e:a.e,c:a.n-a.e,v:a.v,p:Math.round(a.v/a.n)}); });
-    wr.addRow({t:'TOTAL',n:tn,e:te,c:tn-te,v:tv,p:Math.round(tv/tn)});
-    xlEstiloTabla(wr,6);
-    wr.getColumn('v').numFmt=MONEDA; wr.getColumn('p').numFmt=MONEDA;
+    filas.forEach(s=>{ const k=responsable(s); const a=agr[k]||(agr[k]={n:0,e:0,v:0,mo:0,ri:0}); const c=mano.get(s.id);
+      a.n++; if(s.estado==='entregado') a.e++; a.v+=Number(s.total)||0; a.mo+=c.mo; a.ri+=c.ins; });
+    let tn=0,te=0,tv=0,tmo=0,tri=0;
+    Object.keys(agr).sort().forEach(k=>{ const a=agr[k]; tn+=a.n; te+=a.e; tv+=a.v; tmo+=a.mo; tri+=a.ri;
+      wr.addRow({t:k,n:a.n,e:a.e,c:a.n-a.e,mo:a.mo,ri:a.ri,v:a.v,p:Math.round(a.v/a.n)}); });
+    wr.addRow({t:'TOTAL',n:tn,e:te,c:tn-te,mo:tmo,ri:tri,v:tv,p:Math.round(tv/tn)});
+    xlEstiloTabla(wr,8);
+    ['mo','ri','v','p'].forEach(k=>wr.getColumn(k).numFmt=MONEDA);
     const ult=wr.getRow(wr.rowCount); ult.font={bold:true};
     wr.addRow([]);
     const rango=(desde||hasta)?((desde||'inicio')+' a '+(hasta||'hoy')):'Todo el historial';
     wr.addRow(['Filtro: '+($('#xlTrab').selectedOptions[0].textContent)+' · Período: '+rango]);
     wr.addRow(['Generado el '+new Date().toLocaleString('es-CL',{timeZone:TZ_CL})]);
     wr.addRow(['Nota: "Realizado por" es quien tomó el servicio; en los servicios anteriores a la función "Tomar" se usa quien los ingresó.']);
+    wr.addRow(['Mano de obra = servicios del plan y trabajos (cambio de…, reparación, mantención, mano de obra, etc.). Repuestos e insumos = productos de la tienda y piezas. La clasificación de cada ítem está en la hoja "Detalle de ítems".']);
 
     // --- Hoja 2: servicios
     const ws=wb.addWorksheet('Servicios');
@@ -2513,7 +2518,8 @@ async function generarExcel(){
       {header:'Cliente',key:'cli',width:24},{header:'RUT',key:'rut',width:14},{header:'Teléfono',key:'tel',width:16},
       {header:'Patente',key:'pat',width:11},{header:'Moto',key:'moto',width:24},{header:'Km',key:'km',width:10},
       {header:'Categoría',key:'cat',width:16},{header:'Plan',key:'plan',width:18},{header:'N° ítems',key:'ni',width:9},
-      {header:'Desc. %',key:'desc',width:9},{header:'Total',key:'total',width:15},{header:'Observaciones',key:'obs',width:44}];
+      {header:'Desc. %',key:'desc',width:9},{header:'Mano de obra',key:'mo',width:15},{header:'Repuestos e insumos',key:'ri',width:18},
+      {header:'Total',key:'total',width:15},{header:'Observaciones',key:'obs',width:44}];
     filas.forEach(s=>{
       const items=Array.isArray(s.items)?s.items:[];
       ws.addRow({folio:s.folio,rec:xlFecha(s.fecha_recibido||s.created_at),ent:xlFecha(s.fecha_entregado),
@@ -2521,24 +2527,24 @@ async function generarExcel(){
         cli:s.cliente_nombre||'',rut:s.cliente_rut||'',tel:s.cliente_telefono||'',pat:s.moto_patente||'',
         moto:[s.moto_marca,s.moto_modelo].filter(Boolean).join(' '),km:s.kilometraje||null,
         cat:(typeof CAT_LABEL!=='undefined'&&CAT_LABEL[s.categoria])||s.categoria||'',plan:s.plan_nombre||'',
-        ni:items.length,desc:Number(s.descuento)||0,total:Number(s.total)||0,obs:s.observaciones||''});
+        ni:items.length,desc:Number(s.descuento)||0,mo:mano.get(s.id).mo,ri:mano.get(s.id).ins,total:Number(s.total)||0,obs:s.observaciones||''});
     });
-    xlEstiloTabla(ws,19);
+    xlEstiloTabla(ws,21);
     ['rec','ent'].forEach(k=>ws.getColumn(k).numFmt=FECHA);
-    ws.getColumn('total').numFmt=MONEDA; ws.getColumn('km').numFmt='#,##0';
+    ['mo','ri','total'].forEach(k=>ws.getColumn(k).numFmt=MONEDA); ws.getColumn('km').numFmt='#,##0';
 
     // --- Hoja 3: detalle de ítems
     const wd=wb.addWorksheet('Detalle de ítems');
     wd.columns=[
       {header:'Folio',key:'folio',width:17},{header:'Fecha recibido',key:'rec',width:17},{header:'Patente',key:'pat',width:11},
       {header:'Cliente',key:'cli',width:24},{header:'Realizado por',key:'tom',width:22},{header:'Detalle',key:'det',width:46},
-      {header:'Tipo',key:'tipo',width:12},{header:'Agregado por',key:'ag',width:22},{header:'Cant.',key:'cant',width:8},
+      {header:'Tipo',key:'tipo',width:18},{header:'Agregado por',key:'ag',width:22},{header:'Cant.',key:'cant',width:8},
       {header:'Precio unit.',key:'pu',width:15},{header:'Desc. %',key:'d',width:9},{header:'Subtotal',key:'sub',width:15}];
     filas.forEach(s=>{
       (Array.isArray(s.items)?s.items:[]).forEach(it=>{
         wd.addRow({folio:s.folio,rec:xlFecha(s.fecha_recibido||s.created_at),pat:s.moto_patente||'',cli:s.cliente_nombre||'',
           tom:responsable(s),det:it.descripcion||'',
-          tipo:it.tipo==='plan'?'Plan':it.origen==='tienda'?'Tienda':it.origen==='manual'?'Manual':'—',
+          tipo:esManoObra(it)?'Mano de obra':'Repuesto / insumo',
           ag:it.creado_por||'',cant:Number(it.cantidad)||1,pu:Number(it.precio)||0,d:Number(it.descuento)||0,sub:itemNeto(it)});
       });
     });
@@ -2620,13 +2626,16 @@ async function cargarStats(forzar){
     todos.push(...(r.data||[]));
     if (!r.data || r.data.length < 1000) break;
   }
-  // nombres de productos de la tienda: sirven para reconocer insumos en servicios anteriores (sin marca de origen)
+  await cargarNombresProductos();
+  statsDatos = todos; statsEn = Date.now();
+  return todos;
+}
+// nombres de productos de la tienda: sirven para reconocer insumos en servicios anteriores (sin marca de origen)
+async function cargarNombresProductos(){
   try{
     const { data } = await db.from('premium_productos').select('nombre');
     statsProductos = new Set((data||[]).map(p=>String(p.nombre||'').trim().toLowerCase()).filter(Boolean));
   }catch(e){ statsProductos = new Set(); }
-  statsDatos = todos; statsEn = Date.now();
-  return todos;
 }
 function lunesDe(iso){   // lunes (YYYY-MM-DD, hora de Chile) de la semana de esa fecha
   const [y,m,d] = xlDia(iso).split('-').map(Number);
@@ -2653,17 +2662,21 @@ function rangoStats(){
   if (per==='rango') return [$('#stDesde').value||null, $('#stHasta').value||null];
   return [null,null];
 }
-// separa el valor de un servicio en: plan/servicio, insumos de la tienda, extras manuales y otros (anteriores sin clasificar)
+// Mano de obra = servicios del plan y trabajos (por su descripción); repuestos e insumos = todo lo demás (productos de la tienda y piezas)
+const RX_MANO_OBRA = /mano de obra|servicio|cambio de|reparaci|mantenci|instalaci|revisi|lavado|vulcaniz|ajuste|diagn[oó]st|rectific|alineaci|balanceo|soldadura|armado|desarme|lubricaci|inspecci|regulaci|limpieza|calibraci|configuraci/i;
+function esManoObra(it){
+  const nom = String(it.descripcion||'').trim();
+  if (it.origen==='tienda') return false;
+  if (it.tipo==='plan' || it.origen==='plan' || it.origen==='servicio') return true;
+  if (statsProductos && statsProductos.has(nom.toLowerCase())) return false;
+  return RX_MANO_OBRA.test(nom);
+}
 function clasificarItems(s){
-  const r = { plan:0, ins:0, man:0, otro:0, lista:[] };
+  const r = { mo:0, ins:0, lista:[] };
   (Array.isArray(s.items)?s.items:[]).forEach(it=>{
     const v = itemNeto(it), nom = String(it.descripcion||'').trim();
-    const tipo = it.origen==='tienda' ? 'ins'
-      : (it.tipo==='plan' || it.origen==='plan' || it.origen==='servicio') ? 'plan'
-      : it.origen==='manual' ? 'man'
-      : (statsProductos && statsProductos.has(nom.toLowerCase())) ? 'ins' : 'otro';
-    r[tipo] += v;
-    if (tipo==='ins' && nom) r.lista.push({ nombre:nom, cant:Number(it.cantidad)||1, valor:v });
+    if (esManoObra(it)) r.mo += v;
+    else { r.ins += v; if (nom && v>0) r.lista.push({ nombre:nom, cant:Number(it.cantidad)||1, valor:v }); }
   });
   return r;
 }
@@ -2680,7 +2693,7 @@ function agregarStats(filas){
   const nuevo = ()=>({n:0,term:0,med:0,medTerm:0,trab:0,trabTerm:0,total:0,pausa:0,valor:0,ins:0,mo:0});
   const sumar = (o,f)=>{
     o.n++; o.valor += Number(f.s.total)||0; if (f.terminado) o.term++;
-    o.ins += f.cls.ins; o.mo += f.cls.plan + f.cls.man + f.cls.otro;
+    o.ins += f.cls.ins; o.mo += f.cls.mo;
     if (f.t){ o.med++; o.trab+=f.t.trabajado; o.total+=f.t.total; o.pausa+=f.t.pausa; if (!f.t.enCurso){ o.medTerm++; o.trabTerm+=f.t.trabajado; } }
   };
   const porT = {}, porS = {};
@@ -2725,12 +2738,12 @@ function pintarStats(){
     <div class="stcard"><b>${promTxt(tot)}</b><span>Promedio por servicio</span></div>
     <div class="stcard"><b>${money(tot.valor)}</b><span>Total vendido</span></div>
     <div class="stcard"><b>${money(tot.mo)}</b><span>Mano de obra</span></div>
-    <div class="stcard"><b>${money(tot.ins)}</b><span>Insumos</span></div>
+    <div class="stcard"><b>${money(tot.ins)}</b><span>Repuestos e insumos</span></div>
   </div>
   ${sinMed ? `<p class="modalsub" style="margin:8px 0 0">⚠️ ${sinMed} servicio${sinMed===1?'':'s'} sin tiempo medido: son anteriores a esta función o nadie los tomó con "Tomar este servicio". Se cuentan en cantidades y montos, pero no en horas.</p>` : ''}`;
 
   const filaT = (nombre,o,extra)=>`<tr><td>${extra||''}${esc(nombre)}</td><td class="num">${o.n}</td><td class="num">${o.term}</td><td class="num">${o.med?fmtDur(o.trab):'—'}</td><td class="num">${o.med?fmtDur(o.pausa):'—'}</td><td class="num">${promTxt(o)}</td><td class="num">${money(o.mo)}</td><td class="num">${money(o.ins)}</td><td class="num"><b>${money(o.valor)}</b></td></tr>`;
-  const encT = '<thead><tr><th></th><th class="num">Servicios</th><th class="num">Terminados</th><th class="num">Trabajado</th><th class="num">En pausa</th><th class="num">Promedio</th><th class="num">Mano de obra</th><th class="num">Insumos</th><th class="num">Total $</th></tr></thead>';
+  const encT = '<thead><tr><th></th><th class="num">Servicios</th><th class="num">Terminados</th><th class="num">Trabajado</th><th class="num">En pausa</th><th class="num">Promedio</th><th class="num">Mano de obra</th><th class="num">Repuestos e insumos</th><th class="num">Total $</th></tr></thead>';
   const tablaTrab = '<h4 class="sttit">Por trabajador</h4><div class="sttbl-wrap"><table class="sttbl">'+encT+'<tbody>'
     + Object.keys(porT).sort((a,b)=>porT[b].valor-porT[a].valor).map(k=>filaT(k,porT[k])).join('')+'</tbody></table></div>';
 
@@ -2744,18 +2757,18 @@ function pintarStats(){
       }).join('')+'</tbody></table></div>';
 
   const rank = rankingInsumos(filas), MAXI = 15;
-  const tablaIns = '<h4 class="sttit">Insumos más usados</h4>' + (rank.length
+  const tablaIns = '<h4 class="sttit">Repuestos e insumos más usados</h4>' + (rank.length
     ? '<div class="sttbl-wrap"><table class="sttbl"><thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">En servicios</th><th>Quién más lo usó</th><th class="num">Total $</th></tr></thead><tbody>'
       + rank.slice(0,MAXI).map(o=>{
           const top = Object.entries(o.porT).sort((a,b)=>b[1].valor-a[1].valor)[0];
           return `<tr><td>${esc(o.nombre)}</td><td class="num">${o.cant}</td><td class="num">${o.servicios}</td><td>${top?esc(top[0])+' ('+top[1].cant+')':'—'}</td><td class="num"><b>${money(o.valor)}</b></td></tr>`;
         }).join('')+'</tbody></table></div>'
       + (rank.length>MAXI ? `<p class="modalsub">Se muestran los ${MAXI} principales de ${rank.length}. El Excel trae todos.</p>` : '')
-    : '<p class="modalsub">No hay insumos de la tienda en estos servicios.</p>');
+    : '<p class="modalsub">No hay repuestos ni insumos en estos servicios.</p>');
 
   const orden = filas.slice().sort((a,b)=>String(b.ref).localeCompare(String(a.ref)));
   const MAX = 300;
-  const tablaDet = '<h4 class="sttit">Detalle de cada servicio</h4><div class="sttbl-wrap"><table class="sttbl"><thead><tr><th>Folio</th><th>Realizado por</th><th>Moto</th><th>Tomado</th><th>Listo</th><th class="num">Trabajado</th><th class="num">En pausa</th><th class="num">Total tiempo</th><th>Estado</th><th class="num">Insumos</th><th class="num">Total $</th></tr></thead><tbody>'
+  const tablaDet = '<h4 class="sttit">Detalle de cada servicio</h4><div class="sttbl-wrap"><table class="sttbl"><thead><tr><th>Folio</th><th>Realizado por</th><th>Moto</th><th>Tomado</th><th>Listo</th><th class="num">Trabajado</th><th class="num">En pausa</th><th class="num">Total tiempo</th><th>Estado</th><th class="num">Repuestos e insumos</th><th class="num">Total $</th></tr></thead><tbody>'
     + orden.slice(0,MAX).map(f=>{
         const s=f.s, t=f.t, moto=[s.moto_marca,s.moto_modelo].filter(Boolean).join(' ')+(s.moto_patente?' · '+s.moto_patente:'');
         const tr = t ? `<td>${fmtFH(s.tomado_at)}</td><td>${s.listo_at?fmtFH(s.listo_at):'<i>en curso</i>'}</td><td class="num"><b>${fmtDur(t.trabajado)}</b></td><td class="num">${t.pausa>=60?fmtDur(t.pausa):'—'}</td><td class="num">${fmtDur(t.total)}</td>`
