@@ -322,6 +322,41 @@
   .plancheck li{font-size:12.5px;padding:3px 0 3px 20px;position:relative;break-inside:avoid}
   .plancheck li::before{content:"✓";position:absolute;left:0;color:var(--verde);font-weight:800}
 
+  /* estadísticas */
+  .stgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px}
+  .stcard{background:var(--panel2);border-radius:12px;padding:12px 14px}
+  .stcard b{display:block;font-family:Oswald;font-size:21px;color:var(--tinta);line-height:1.2}
+  .stcard span{font-size:11px;color:var(--gris5);text-transform:uppercase;letter-spacing:.4px}
+  .sttit{font-family:Oswald;font-size:16px;margin:18px 0 6px;color:var(--tinta);text-transform:uppercase}
+  .sttbl-wrap{overflow-x:auto;border:1px solid var(--gris2);border-radius:10px}
+  .sttbl{width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap}
+  .sttbl th{background:var(--tinta);color:var(--panel);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;text-align:left}
+  .sttbl td{padding:7px 10px;border-top:1px solid var(--gris2);color:var(--tinta)}
+  .sttbl .num{text-align:right}
+  .sttbl tr.stsem td{background:var(--tint-acento);font-weight:700}
+  .sttbl .stind{color:var(--gris5);margin-left:6px}
+  .sttbl small{color:var(--gris5)}
+
+  /* gestión de marcas y modelos */
+  .mw-marca{border-bottom:1px solid var(--gris2)}
+  .mw-mh{display:flex;align-items:center;gap:6px;padding:8px 0}
+  .mw-mh .mw-up,.mw-mh .mw-down{width:30px;height:34px;flex:0 0 auto;border-radius:8px;background:var(--panel2);color:var(--gris5);font-size:13px}
+  .mw-tog{flex:1;min-width:0;display:flex;align-items:center;gap:8px;text-align:left;padding:8px 10px;border-radius:10px;background:transparent;color:var(--tinta)}
+  .mw-tog b{font-size:15px}
+  .mw-tog small{color:var(--gris5);font-size:11.5px;flex:1;min-width:0}
+  .mw-flecha{color:var(--gris5);font-size:14px}
+  .mw-delmarca{flex:0 0 auto;background:#fff0f0;color:#dc2626;border-radius:8px;padding:7px 10px;font-size:11.5px;font-weight:700}
+  .mw-lista{padding:0 0 10px 6px;display:flex;flex-direction:column;gap:6px}
+  .mw-modelo{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel2);border-radius:10px}
+  .mw-mn{flex:1;min-width:0}
+  .mw-mn b{display:block;font-size:13.5px;color:var(--tinta)}
+  .mw-mn small{color:var(--gris5);font-size:11.5px}
+  .mw-seg{display:flex;flex:0 0 auto;border:1px solid var(--gris2);border-radius:8px;overflow:hidden}
+  .mw-seg button{padding:6px 9px;font-size:11.5px;font-weight:700;background:var(--panel);color:var(--gris5)}
+  .mw-seg button.on{background:var(--tinta);color:var(--panel)}
+  .mw-seg button.on.bt{background:var(--lima);color:#0b0d10}
+  .mw-delmod{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:#fff0f0;color:#dc2626;font-size:16px;line-height:1}
+
   /* calendario de la agenda */
   .agcal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .agcal-head b{font-family:Oswald;font-size:17px;text-transform:capitalize;color:var(--tinta)}
@@ -868,7 +903,7 @@
       <button class="btnprecios hidden" id="preciosBtn">💲 Editar precios</button>
       <button class="btnprecios hidden" id="equipoBtn">👥 Equipo</button>
       <button class="btnprecios hidden" id="motosBtn">🏍️ Motos</button>
-      <button class="btnprecios hidden" id="excelBtn">📊 Excel</button>
+      <button class="btnprecios hidden" id="statsBtn">📈 Estadísticas</button>
     </div>
     <div class="grid" id="list"></div>
     <footer class="appfoot">
@@ -901,6 +936,7 @@
         <button type="button" id="edTomarBtn" class="hidden" style="padding:7px 14px;border-radius:999px;background:var(--lima);color:#0b0d10;font-weight:700;font-size:13px">Tomar este servicio</button>
         <button type="button" id="edSoltarBtn" class="hidden" style="padding:7px 14px;border-radius:999px;background:var(--panel2);color:var(--gris9);font-weight:700;font-size:13px;border:1px solid var(--gris2)">Soltar</button>
       </div>
+      <div id="edTiempo" style="font-size:13px;color:var(--gris9);margin:-4px 0 10px"></div>
       <div class="estados" id="estadoBtns">
         <div class="est recibido on" data-e="recibido">📥 Recibido</div>
         <div class="est en_proceso" data-e="en_proceso">🔧 En proceso</div>
@@ -1500,6 +1536,31 @@
   </div>
 </div>
 
+<!-- MODAL ESTADÍSTICAS (solo admin) -->
+<div id="statsModal" class="modalov">
+  <div class="modalbox" style="max-width:1000px">
+    <h3>📈 Estadísticas de trabajo</h3>
+    <p class="modalsub">Servicios de cada trabajador y cuánto tardó cada uno, desde que lo tomó hasta que quedó "Lista para retiro". Solo lo ve el administrador.</p>
+    <div class="row c2">
+      <div><label>Trabajador</label><select id="stTrab" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--gris2)"><option value="__todos">Todos los trabajadores</option></select></div>
+      <div><label>Período</label>
+        <select id="stPer" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--gris2)">
+          <option value="semana">Esta semana</option><option value="mes" selected>Este mes</option>
+          <option value="todo">Todo el historial</option><option value="rango">Elegir fechas…</option>
+        </select></div>
+    </div>
+    <div id="stRango" class="row c2 hidden" style="margin-top:8px"><div><label>Desde</label><input type="date" id="stDesde"></div><div><label>Hasta</label><input type="date" id="stHasta"></div></div>
+    <div id="stCuerpo" style="margin-top:12px"></div>
+    <div class="modalact">
+      <button class="btn-ghost" id="stCerrar">Cerrar</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn-ghost" id="stActualizar" style="padding:12px 14px">🔄 Actualizar</button>
+        <button class="btn-save" id="stExcel" style="flex:0 0 auto;padding:12px 16px">📊 Descargar Excel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL AGENDA DE HORAS -->
 <div id="agendaModal" class="modalov">
   <div class="modalbox" style="max-width:560px">
@@ -1571,8 +1632,10 @@
 <div id="motosModal" class="modalov">
   <div class="modalbox" style="max-width:600px">
     <h3>🏍️ Gestión de marcas y modelos</h3>
-    <p style="font-size:12px;color:var(--gris5);margin:4px 0 14px">Ordena, agrega o elimina marcas y modelos del cotizador.</p>
-    <div id="motosLista" style="max-height:400px;overflow-y:auto"></div>
+    <p style="font-size:12px;color:var(--gris5);margin:4px 0 6px">Ordena, agrega o elimina marcas y modelos del cotizador. Toca una marca para ver sus modelos y elige si es <b>Normal</b> o <b>Big Trail</b>.</p>
+    <p id="mwResumen" style="font-size:12px;color:var(--acento-txt);font-weight:700;margin:0 0 8px"></p>
+    <input id="mwBuscar" type="search" placeholder="Buscar marca o modelo…" style="width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--gris2);font-size:14px;margin-bottom:8px">
+    <div id="motosLista" style="max-height:52vh;overflow-y:auto"></div>
     <details style="margin-top:12px;border:1px solid var(--gris2);border-radius:10px;padding:10px 12px">
       <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--acento-txt)">＋ Agregar modelo</summary>
       <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1900,6 +1963,7 @@ async function openApp(){
     const eb=$('#equipoBtn'); if(eb) eb.classList.remove('hidden');
     const mb=$('#motosBtn'); if(mb) mb.classList.remove('hidden');
     const xb=$('#excelBtn'); if(xb) xb.classList.remove('hidden');
+    const sb2=$('#statsBtn'); if(sb2) sb2.classList.remove('hidden');
   } else {
     const pb=$('#preciosBtn'); if(pb) pb.classList.add('hidden');
     const eb=$('#equipoBtn'); if(eb) eb.classList.add('hidden');
@@ -1920,14 +1984,26 @@ async function logout(){
    ============================================================ */
 let serviciosCargadosEn = 0;
 // Todas las columnas menos firma_entrega (imagen en texto, muy pesada). Si se agrega una columna nueva a la tabla, sumarla aquí.
-const COLS_LISTA = 'id,folio,estado,categoria,plan_key,plan_nombre,cliente_nombre,cliente_rut,cliente_telefono,moto_patente,moto_marca,moto_modelo,items,checklist,total,observaciones,fotos_ingreso,fotos_salida,fecha_recibido,fecha_entregado,created_at,updated_at,retira_nombre,retira_rut,mostrar_nota_insumos,creado_por,creado_por_email,editado_por,estado_motivo,descuento,kilometraje,fotos_pdf,fotos_comprimidas,fotos_proceso,tomado_por';
+const COLS_LISTA = 'id,folio,estado,categoria,plan_key,plan_nombre,cliente_nombre,cliente_rut,cliente_telefono,moto_patente,moto_marca,moto_modelo,items,checklist,total,observaciones,fotos_ingreso,fotos_salida,fecha_recibido,fecha_entregado,created_at,updated_at,retira_nombre,retira_rut,mostrar_nota_insumos,creado_por,creado_por_email,editado_por,estado_motivo,descuento,kilometraje,fotos_pdf,fotos_comprimidas,fotos_proceso,tomado_por,tomado_at,listo_at,pausa_seg,pausa_desde';
+// si las columnas de tiempo todavía no existen en la base, se reintenta sin ellas (la lista nunca debe quedar vacía)
+const COLS_LISTA_BASE = COLS_LISTA.replace(',tomado_at,listo_at,pausa_seg,pausa_desde','');
+let colsListaActual = COLS_LISTA;
+function selectLista(){ return db.from('premium_servicios').select(colsListaActual); }
+async function pedirLista(armar){
+  let r = await armar(selectLista());
+  if (r.error && colsListaActual===COLS_LISTA && /column|tomado_at|listo_at|pausa_/i.test(r.error.message||'')){
+    colsListaActual = COLS_LISTA_BASE;
+    r = await armar(selectLista());
+  }
+  return r;
+}
 const TANDA_ENTREGADOS = 10;
 let entOffset = 0, hayMasEnt = false, cargandoMas = false;
 async function loadServicios(){
   // activos: todos (suelen ser pocos). Entregados: solo la primera tanda; el resto con "Ver más".
   const [act, ent] = await Promise.all([
-    db.from('premium_servicios').select(COLS_LISTA).neq('estado','entregado').order('created_at',{ascending:false}),
-    db.from('premium_servicios').select(COLS_LISTA).eq('estado','entregado').order('created_at',{ascending:false}).range(0,TANDA_ENTREGADOS-1)
+    pedirLista(q=>q.neq('estado','entregado').order('created_at',{ascending:false})),
+    pedirLista(q=>q.eq('estado','entregado').order('created_at',{ascending:false}).range(0,TANDA_ENTREGADOS-1))
   ]);
   const error = act.error || ent.error;
   if (error){ toast('Error al cargar: '+error.message,'bad'); return; }
@@ -1939,8 +2015,8 @@ async function loadServicios(){
 }
 async function verMasEntregados(){
   if (cargandoMas) return; cargandoMas = true;
-  const { data, error } = await db.from('premium_servicios').select(COLS_LISTA).eq('estado','entregado')
-    .order('created_at',{ascending:false}).range(entOffset, entOffset+TANDA_ENTREGADOS-1);
+  const { data, error } = await pedirLista(q=>q.eq('estado','entregado')
+    .order('created_at',{ascending:false}).range(entOffset, entOffset+TANDA_ENTREGADOS-1));
   cargandoMas = false;
   if (error){ toast('No se pudo cargar más: '+error.message,'bad'); return; }
   const nuevos = (data||[]).filter(n=>!servicios.some(x=>x.id===n.id));
@@ -1957,9 +2033,9 @@ function buscarEnBase(){
   if (q.length < 2) return;
   tBusca = setTimeout(async ()=>{
     const p = '%'+q+'%';
-    const { data } = await db.from('premium_servicios').select(COLS_LISTA)
+    const { data } = await pedirLista(qq=>qq
       .or('folio.ilike.'+p+',moto_patente.ilike.'+p+',moto_marca.ilike.'+p+',moto_modelo.ilike.'+p+',cliente_nombre.ilike.'+p)
-      .order('created_at',{ascending:false}).limit(50);
+      .order('created_at',{ascending:false}).limit(50));
     let agregado = false;
     (data||[]).forEach(n=>{ if (!servicios.some(x=>x.id===n.id)){ servicios.push(n); agregado = true; } });
     if (agregado) renderList();
@@ -2190,7 +2266,7 @@ async function abrirServicioDeCita(c){
   if (fresh.folio_servicio){
     let s = servicios.find(x=>x.folio===fresh.folio_servicio);
     if (!s){
-      try{ const { data } = await db.from('premium_servicios').select(COLS_LISTA).eq('folio',fresh.folio_servicio).maybeSingle();
+      try{ const { data } = await pedirLista(q=>q.eq('folio',fresh.folio_servicio).limit(1)).then(r=>({data:(r.data||[])[0]||null}));
            if (data){ s = data; servicios.push(s); } }catch(e){}
     }
     if (s){ await openEditor(s); return; }
@@ -2351,7 +2427,7 @@ function cargarExcelJS(){
     document.head.appendChild(sc);
   });
 }
-async function abrirExcel(){
+async function abrirExcel(pre){
   $('#excelModal').classList.add('open');
   $('#xlMsg').textContent=''; $('#xlGuardarBtn').classList.add('hidden');
   const sel=$('#xlTrab');
@@ -2366,6 +2442,10 @@ async function abrirExcel(){
     (data||[]).forEach(x=>{ if (x.tomado_por) nombres.add(x.tomado_por); if (x.creado_por) nombres.add(x.creado_por); });
   }catch(e){}
   [...nombres].sort((a,b)=>a.localeCompare(b,'es')).forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+  if (pre){
+    if (pre.trab && [...sel.options].some(o=>o.value===pre.trab)) sel.value = pre.trab;
+    $('#xlDesde').value = pre.desde||''; $('#xlHasta').value = pre.hasta||'';
+  } else { $('#xlDesde').value=''; $('#xlHasta').value=''; }
 }
 function xlEstiloTabla(ws, cols){
   const h=ws.getRow(1); h.height=24;
@@ -2388,8 +2468,7 @@ async function generarExcel(){
     msg.textContent='Cargando servicios…';
     const todos = [];
     for (let ini=0; ; ini+=1000){
-      const { data, error } = await db.from('premium_servicios').select(COLS_LISTA)
-        .order('created_at',{ascending:false}).range(ini, ini+999);
+      const { data, error } = await pedirLista(q=>q.order('created_at',{ascending:false}).range(ini, ini+999));
       if (error) throw error;
       todos.push(...(data||[]));
       if (!data || data.length < 1000) break;
@@ -2467,6 +2546,36 @@ async function generarExcel(){
     xlEstiloTabla(wd,12);
     wd.getColumn('rec').numFmt=FECHA; wd.getColumn('pu').numFmt=MONEDA; wd.getColumn('sub').numFmt=MONEDA;
 
+    // --- Hoja 4: tiempos por servicio
+    const ft = filasTiempo(filas);
+    const hrs = seg => Math.round(seg/36)/100;
+    const wt = wb.addWorksheet('Tiempos por servicio');
+    wt.columns=[
+      {header:'Folio',key:'folio',width:17},{header:'Realizado por',key:'resp',width:22},{header:'Dato de "Realizado por"',key:'asig',width:20},
+      {header:'Moto',key:'moto',width:24},{header:'Patente',key:'pat',width:11},{header:'Cliente',key:'cli',width:24},
+      {header:'Estado',key:'estado',width:16},{header:'Semana (lunes)',key:'sem',width:15},
+      {header:'Tomado',key:'tom',width:17},{header:'Listo para retiro',key:'lis',width:17},
+      {header:'Horas trabajadas',key:'ht',width:13},{header:'Horas en pausa',key:'hp',width:13},{header:'Horas totales',key:'hto',width:13},{header:'Total $',key:'total',width:15}];
+    ft.forEach(f=>{ const sv=f.s, t=f.t;
+      wt.addRow({folio:sv.folio,resp:f.resp,asig:sv.tomado_por?'Lo tomó':'Quien lo ingresó',moto:[sv.moto_marca,sv.moto_modelo].filter(Boolean).join(' '),
+        pat:sv.moto_patente||'',cli:sv.cliente_nombre||'',estado:estadoLabel(sv.estado),sem:f.semana,tom:xlFecha(sv.tomado_at),lis:xlFecha(sv.listo_at),
+        ht:t?hrs(t.trabajado):null,hp:t?hrs(t.pausa):null,hto:t?hrs(t.total):null,total:Number(sv.total)||0}); });
+    xlEstiloTabla(wt,14);
+    ['tom','lis'].forEach(k=>wt.getColumn(k).numFmt=FECHA);
+    ['ht','hp','hto'].forEach(k=>wt.getColumn(k).numFmt='0.00'); wt.getColumn('total').numFmt=MONEDA;
+
+    // --- Hoja 5: tiempos por semana y trabajador
+    const wsm = wb.addWorksheet('Tiempos por semana');
+    wsm.columns=[{header:'Semana (lunes a domingo)',key:'sem',width:24},{header:'Trabajador',key:'t',width:24},{header:'Servicios',key:'n',width:11},
+      {header:'Terminados',key:'term',width:12},{header:'Horas trabajadas',key:'ht',width:15},{header:'Horas en pausa',key:'hp',width:14},
+      {header:'Promedio horas por servicio',key:'pr',width:24},{header:'Total $',key:'v',width:16}];
+    const agg = agregarStats(ft);
+    Object.keys(agg.porS).sort().reverse().forEach(sm=>{ const w=agg.porS[sm];
+      Object.keys(w.por).sort().forEach(k=>{ const o=w.por[k];
+        wsm.addRow({sem:etiquetaSemana(sm),t:k,n:o.n,term:o.term,ht:o.med?hrs(o.trab):null,hp:o.med?hrs(o.pausa):null,pr:o.medTerm?hrs(o.trabTerm/o.medTerm):null,v:o.valor}); }); });
+    xlEstiloTabla(wsm,8);
+    ['ht','hp','pr'].forEach(k=>wsm.getColumn(k).numFmt='0.00'); wsm.getColumn('v').numFmt=MONEDA;
+
     const buf=await wb.xlsx.writeBuffer();
     xlBlob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const quien=sel==='__todos'?'Todos':sel==='__sin'?'SinTomar':sel.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúñÑ]+/g,'_');
@@ -2493,7 +2602,193 @@ async function entregarExcel(){
   const a=document.createElement('a'); a.href=url; a.download=xlNombre; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
-$('#excelBtn').onclick = abrirExcel;
+/* ===== ESTADÍSTICAS (solo admin) ===== */
+const COLS_STATS = 'id,folio,estado,moto_marca,moto_modelo,moto_patente,cliente_nombre,total,creado_por,tomado_por,tomado_at,listo_at,pausa_seg,pausa_desde,fecha_recibido,fecha_entregado,created_at,items';
+const COLS_STATS_BASE = 'id,folio,estado,moto_marca,moto_modelo,moto_patente,cliente_nombre,total,creado_por,tomado_por,fecha_recibido,fecha_entregado,created_at,items';
+let statsDatos = null, statsEn = 0, statsProductos = null;
+// se guarda en memoria 5 minutos para no pedir todo a la base cada vez que se cambia un filtro
+async function cargarStats(forzar){
+  if (!forzar && statsDatos && Date.now()-statsEn < 5*60*1000) return statsDatos;
+  const todos = []; let cols = COLS_STATS;
+  for (let ini=0; ; ini+=1000){
+    let r = await db.from('premium_servicios').select(cols).order('created_at',{ascending:false}).range(ini, ini+999);
+    if (r.error && cols===COLS_STATS){   // las columnas de tiempo todavía no existen en la base
+      cols = COLS_STATS_BASE;
+      r = await db.from('premium_servicios').select(cols).order('created_at',{ascending:false}).range(ini, ini+999);
+    }
+    if (r.error) throw r.error;
+    todos.push(...(r.data||[]));
+    if (!r.data || r.data.length < 1000) break;
+  }
+  // nombres de productos de la tienda: sirven para reconocer insumos en servicios anteriores (sin marca de origen)
+  try{
+    const { data } = await db.from('premium_productos').select('nombre');
+    statsProductos = new Set((data||[]).map(p=>String(p.nombre||'').trim().toLowerCase()).filter(Boolean));
+  }catch(e){ statsProductos = new Set(); }
+  statsDatos = todos; statsEn = Date.now();
+  return todos;
+}
+function lunesDe(iso){   // lunes (YYYY-MM-DD, hora de Chile) de la semana de esa fecha
+  const [y,m,d] = xlDia(iso).split('-').map(Number);
+  const f = new Date(Date.UTC(y,m-1,d));
+  f.setUTCDate(f.getUTCDate() - ((f.getUTCDay()+6)%7));
+  return f.toISOString().slice(0,10);
+}
+function etiquetaSemana(lunes){
+  const a = new Date(lunes+'T00:00:00Z'), b = new Date(a.getTime()+6*86400000);
+  const f = x=>x.toLocaleDateString('es-CL',{timeZone:'UTC',day:'2-digit',month:'short'});
+  return f(a)+' – '+f(b);
+}
+function fmtFH(iso){
+  return iso ? new Date(iso).toLocaleString('es-CL',{timeZone:TZ_CL,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+}
+function rangoStats(){
+  const per = $('#stPer').value, hoy = xlDia(new Date().toISOString());
+  if (per==='semana'){
+    const l = lunesDe(new Date().toISOString()), f = new Date(l+'T00:00:00Z');
+    f.setUTCDate(f.getUTCDate()+6);
+    return [l, f.toISOString().slice(0,10)];
+  }
+  if (per==='mes') return [hoy.slice(0,8)+'01', hoy];
+  if (per==='rango') return [$('#stDesde').value||null, $('#stHasta').value||null];
+  return [null,null];
+}
+// separa el valor de un servicio en: plan/servicio, insumos de la tienda, extras manuales y otros (anteriores sin clasificar)
+function clasificarItems(s){
+  const r = { plan:0, ins:0, man:0, otro:0, lista:[] };
+  (Array.isArray(s.items)?s.items:[]).forEach(it=>{
+    const v = itemNeto(it), nom = String(it.descripcion||'').trim();
+    const tipo = it.origen==='tienda' ? 'ins'
+      : (it.tipo==='plan' || it.origen==='plan' || it.origen==='servicio') ? 'plan'
+      : it.origen==='manual' ? 'man'
+      : (statsProductos && statsProductos.has(nom.toLowerCase())) ? 'ins' : 'otro';
+    r[tipo] += v;
+    if (tipo==='ins' && nom) r.lista.push({ nombre:nom, cant:Number(it.cantidad)||1, valor:v });
+  });
+  return r;
+}
+// una fila por servicio con su responsable, sus tiempos, su desglose de valor y la semana en que se trabajó
+function filasTiempo(servs){
+  return servs.map(s=>{
+    const t = tiemposServicio(s);
+    const ref = s.listo_at || s.tomado_at || s.fecha_recibido || s.created_at;
+    return { s, resp:responsable(s), t, ref, dia:xlDia(ref), semana:lunesDe(ref), cls:clasificarItems(s),
+             terminado:['lista_retiro','entregado'].includes(s.estado) };
+  });
+}
+function agregarStats(filas){
+  const nuevo = ()=>({n:0,term:0,med:0,medTerm:0,trab:0,trabTerm:0,total:0,pausa:0,valor:0,ins:0,mo:0});
+  const sumar = (o,f)=>{
+    o.n++; o.valor += Number(f.s.total)||0; if (f.terminado) o.term++;
+    o.ins += f.cls.ins; o.mo += f.cls.plan + f.cls.man + f.cls.otro;
+    if (f.t){ o.med++; o.trab+=f.t.trabajado; o.total+=f.t.total; o.pausa+=f.t.pausa; if (!f.t.enCurso){ o.medTerm++; o.trabTerm+=f.t.trabajado; } }
+  };
+  const porT = {}, porS = {};
+  filas.forEach(f=>{
+    sumar(porT[f.resp] || (porT[f.resp]=nuevo()), f);
+    const w = porS[f.semana] || (porS[f.semana]={tot:nuevo(),por:{}});
+    sumar(w.tot, f); sumar(w.por[f.resp] || (w.por[f.resp]=nuevo()), f);
+  });
+  return { porT, porS };
+}
+// insumos (productos de la tienda) usados, del más al menos vendido; con detalle por trabajador
+function rankingInsumos(filas){
+  const m = {};
+  filas.forEach(f=>f.cls.lista.forEach(i=>{
+    const k = i.nombre.toLowerCase();
+    const o = m[k] || (m[k]={ nombre:i.nombre, cant:0, valor:0, servs:new Set(), porT:{} });
+    o.cant += i.cant; o.valor += i.valor; o.servs.add(f.s.id);
+    const p = o.porT[f.resp] || (o.porT[f.resp]={cant:0,valor:0}); p.cant += i.cant; p.valor += i.valor;
+  }));
+  return Object.values(m).map(o=>({ ...o, servicios:o.servs.size })).sort((a,b)=>b.valor-a.valor);
+}
+const promTxt = o => o.medTerm ? fmtDur(o.trabTerm/o.medTerm) : '—';
+function pintarStats(){
+  if (!statsDatos) return;
+  const sel = $('#stTrab').value, [desde,hasta] = rangoStats();
+  let filas = filasTiempo(statsDatos);
+  if (sel!=='__todos') filas = filas.filter(f=>f.resp===sel);
+  if (desde) filas = filas.filter(f=>f.dia>=desde);
+  if (hasta) filas = filas.filter(f=>f.dia<=hasta);
+  $('#stRango').classList.toggle('hidden', $('#stPer').value!=='rango');
+  const cuerpo = $('#stCuerpo');
+  if (!filas.length){ cuerpo.innerHTML = '<p class="modalsub" style="text-align:center;padding:18px 0">No hay servicios en ese período.</p>'; return; }
+
+  const { porT, porS } = agregarStats(filas);
+  const tot = Object.values(porT).reduce((a,o)=>{ for (const k in o) a[k]=(a[k]||0)+o[k]; return a; }, {});
+  const sinMed = filas.length - tot.med;
+
+  const tarjetas = `<div class="stgrid">
+    <div class="stcard"><b>${filas.length}</b><span>Servicios</span></div>
+    <div class="stcard"><b>${tot.term}</b><span>Terminados</span></div>
+    <div class="stcard"><b>${fmtDur(tot.trab)}</b><span>Tiempo trabajado</span></div>
+    <div class="stcard"><b>${promTxt(tot)}</b><span>Promedio por servicio</span></div>
+    <div class="stcard"><b>${money(tot.valor)}</b><span>Total vendido</span></div>
+    <div class="stcard"><b>${money(tot.mo)}</b><span>Mano de obra</span></div>
+    <div class="stcard"><b>${money(tot.ins)}</b><span>Insumos</span></div>
+  </div>
+  ${sinMed ? `<p class="modalsub" style="margin:8px 0 0">⚠️ ${sinMed} servicio${sinMed===1?'':'s'} sin tiempo medido: son anteriores a esta función o nadie los tomó con "Tomar este servicio". Se cuentan en cantidades y montos, pero no en horas.</p>` : ''}`;
+
+  const filaT = (nombre,o,extra)=>`<tr><td>${extra||''}${esc(nombre)}</td><td class="num">${o.n}</td><td class="num">${o.term}</td><td class="num">${o.med?fmtDur(o.trab):'—'}</td><td class="num">${o.med?fmtDur(o.pausa):'—'}</td><td class="num">${promTxt(o)}</td><td class="num">${money(o.mo)}</td><td class="num">${money(o.ins)}</td><td class="num"><b>${money(o.valor)}</b></td></tr>`;
+  const encT = '<thead><tr><th></th><th class="num">Servicios</th><th class="num">Terminados</th><th class="num">Trabajado</th><th class="num">En pausa</th><th class="num">Promedio</th><th class="num">Mano de obra</th><th class="num">Insumos</th><th class="num">Total $</th></tr></thead>';
+  const tablaTrab = '<h4 class="sttit">Por trabajador</h4><div class="sttbl-wrap"><table class="sttbl">'+encT+'<tbody>'
+    + Object.keys(porT).sort((a,b)=>porT[b].valor-porT[a].valor).map(k=>filaT(k,porT[k])).join('')+'</tbody></table></div>';
+
+  const semanas = Object.keys(porS).sort().reverse();
+  const tablaSem = '<h4 class="sttit">Por semana</h4><div class="sttbl-wrap"><table class="sttbl">'+encT+'<tbody>'
+    + semanas.map(sm=>{
+        const w = porS[sm];
+        const cab = filaT(etiquetaSemana(sm), w.tot).replace('<tr>','<tr class="stsem">');
+        const det = Object.keys(w.por).sort().map(k=>filaT(k,w.por[k],'<span class="stind">↳</span> ')).join('');
+        return cab + (Object.keys(w.por).length>1 ? det : '');
+      }).join('')+'</tbody></table></div>';
+
+  const rank = rankingInsumos(filas), MAXI = 15;
+  const tablaIns = '<h4 class="sttit">Insumos más usados</h4>' + (rank.length
+    ? '<div class="sttbl-wrap"><table class="sttbl"><thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">En servicios</th><th>Quién más lo usó</th><th class="num">Total $</th></tr></thead><tbody>'
+      + rank.slice(0,MAXI).map(o=>{
+          const top = Object.entries(o.porT).sort((a,b)=>b[1].valor-a[1].valor)[0];
+          return `<tr><td>${esc(o.nombre)}</td><td class="num">${o.cant}</td><td class="num">${o.servicios}</td><td>${top?esc(top[0])+' ('+top[1].cant+')':'—'}</td><td class="num"><b>${money(o.valor)}</b></td></tr>`;
+        }).join('')+'</tbody></table></div>'
+      + (rank.length>MAXI ? `<p class="modalsub">Se muestran los ${MAXI} principales de ${rank.length}. El Excel trae todos.</p>` : '')
+    : '<p class="modalsub">No hay insumos de la tienda en estos servicios.</p>');
+
+  const orden = filas.slice().sort((a,b)=>String(b.ref).localeCompare(String(a.ref)));
+  const MAX = 300;
+  const tablaDet = '<h4 class="sttit">Detalle de cada servicio</h4><div class="sttbl-wrap"><table class="sttbl"><thead><tr><th>Folio</th><th>Realizado por</th><th>Moto</th><th>Tomado</th><th>Listo</th><th class="num">Trabajado</th><th class="num">En pausa</th><th class="num">Total tiempo</th><th>Estado</th><th class="num">Insumos</th><th class="num">Total $</th></tr></thead><tbody>'
+    + orden.slice(0,MAX).map(f=>{
+        const s=f.s, t=f.t, moto=[s.moto_marca,s.moto_modelo].filter(Boolean).join(' ')+(s.moto_patente?' · '+s.moto_patente:'');
+        const tr = t ? `<td>${fmtFH(s.tomado_at)}</td><td>${s.listo_at?fmtFH(s.listo_at):'<i>en curso</i>'}</td><td class="num"><b>${fmtDur(t.trabajado)}</b></td><td class="num">${t.pausa>=60?fmtDur(t.pausa):'—'}</td><td class="num">${fmtDur(t.total)}</td>`
+                     : '<td>—</td><td>—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>';
+        return `<tr><td>${esc(s.folio)}</td><td>${esc(f.resp)}${s.tomado_por?'':' <small>(ingresó)</small>'}</td><td>${esc(moto||'—')}</td>${tr}<td>${esc(estadoLabel(s.estado))}</td><td class="num">${money(f.cls.ins)}</td><td class="num">${money(s.total)}</td></tr>`;
+      }).join('')+'</tbody></table></div>'
+    + (orden.length>MAX ? `<p class="modalsub">Se muestran los ${MAX} más recientes de ${orden.length}. Para verlos todos usa el Excel.</p>` : '');
+
+  cuerpo.innerHTML = tarjetas + tablaTrab + tablaSem + tablaIns + tablaDet;
+}
+async function abrirStats(forzar){
+  $('#statsModal').classList.add('open');
+  $('#stCuerpo').innerHTML = '<p class="modalsub" style="text-align:center;padding:18px 0">Cargando…</p>';
+  try{
+    const datos = await cargarStats(forzar);
+    const actual = $('#stTrab').value;
+    const nombres = [...new Set(datos.map(s=>responsable(s)))].sort((a,b)=>a.localeCompare(b,'es'));
+    $('#stTrab').innerHTML = '<option value="__todos">Todos los trabajadores</option>' + nombres.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if (actual && nombres.includes(actual)) $('#stTrab').value = actual;
+    pintarStats();
+  }catch(e){
+    $('#stCuerpo').innerHTML = '<p class="modalsub" style="text-align:center;padding:18px 0">No se pudieron cargar las estadísticas: '+esc(e.message||e)+'</p>';
+  }
+}
+$('#statsBtn').onclick = ()=>abrirStats(false);
+$('#stTrab').addEventListener('change', pintarStats);
+$('#stPer').addEventListener('change', pintarStats);
+$('#stDesde').addEventListener('change', pintarStats);
+$('#stHasta').addEventListener('change', pintarStats);
+$('#stActualizar').onclick = ()=>abrirStats(true);
+$('#stExcel').onclick = ()=>{ const [d,h]=rangoStats(); $('#statsModal').classList.remove('open'); abrirExcel({ trab:$('#stTrab').value, desde:d, hasta:h }); };
+$('#stCerrar').onclick = ()=>$('#statsModal').classList.remove('open');
+$('#statsModal').onclick = e=>{ if (e.target.id==='statsModal') $('#statsModal').classList.remove('open'); };
 $('#xlGo').onclick = generarExcel;
 $('#xlGuardarBtn').onclick = entregarExcel;
 $('#xlCancel').onclick = ()=> $('#excelModal').classList.remove('open');
@@ -2509,8 +2804,10 @@ async function abrirMotos(){
   renderMotosAdmin();
 }
 
+let mwAbiertas = new Set();   // marcas desplegadas
 function renderMotosAdmin(){
   const L=$('#motosLista');
+  const q = ($('#mwBuscar') ? $('#mwBuscar').value : '').trim().toLowerCase();
   const marcas = [...new Set(allMotos.map(m=>m.marca))];
   // Leer orden guardado
   const orden = JSON.parse(localStorage.getItem('pm_marcas_orden')||'[]');
@@ -2520,29 +2817,49 @@ function renderMotosAdmin(){
     if(ia>=0) return -1; if(ib>=0) return 1;
     return a.localeCompare(b);
   });
+  const nBT = allMotos.filter(m=>m.tipo==='bigtrail').length;
+  const res = $('#mwResumen');
+  if (res) res.textContent = marcas.length+' marcas · '+allMotos.length+' modelos · '+nBT+' Big Trail';
 
-  L.innerHTML = marcas.map((marca,idx)=>{
-    const modelos = allMotos.filter(m=>m.marca===marca);
-    return `<div class="mw-marca" data-marca="${esc(marca)}">
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--gris2)">
-        <button class="mw-up" data-idx="${idx}" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--gris5);padding:2px 6px" title="Subir">▲</button>
-        <button class="mw-down" data-idx="${idx}" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--gris5);padding:2px 6px" title="Bajar">▼</button>
-        <b style="flex:1;font-size:14px">${esc(marca)}</b>
-        <span style="font-size:11px;color:var(--gris5)">${modelos.length} modelos</span>
-        <button class="mw-delmarca" data-marca="${esc(marca)}" style="background:#fff0f0;color:#dc2626;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer">Eliminar marca</button>
+  let html = '';
+  marcas.forEach((marca,idx)=>{
+    const modelos = allMotos.filter(m=>m.marca===marca).sort((a,b)=>a.modelo.localeCompare(b.modelo,'es'));
+    const marcaCoincide = !q || marca.toLowerCase().includes(q);
+    const vis = marcaCoincide ? modelos : modelos.filter(m=>m.modelo.toLowerCase().includes(q));
+    if (q && !vis.length) return;
+    const abierta = q ? true : mwAbiertas.has(marca);
+    const nbt = modelos.filter(m=>m.tipo==='bigtrail').length;
+    html += `<div class="mw-marca" data-marca="${esc(marca)}">
+      <div class="mw-mh">
+        <button class="mw-up" data-idx="${idx}" title="Subir">▲</button>
+        <button class="mw-down" data-idx="${idx}" title="Bajar">▼</button>
+        <button class="mw-tog" data-marca="${esc(marca)}"><b>${esc(marca)}</b><small>${modelos.length} modelo${modelos.length===1?'':'s'}${nbt?' · '+nbt+' Big Trail':''}</small><span class="mw-flecha">${abierta?'▾':'▸'}</span></button>
+        <button class="mw-delmarca" data-marca="${esc(marca)}">Eliminar</button>
       </div>
-      <div style="padding:4px 0 8px 30px;display:flex;flex-wrap:wrap;gap:4px">
-        ${modelos.map(m=>`<span style="font-size:11px;padding:3px 8px;background:var(--panel2);border-radius:6px;display:inline-flex;align-items:center;gap:4px">${esc(m.modelo)} <small style="color:var(--gris5)">${m.cc}cc</small> <button class="mw-bt" data-id="${m.id}" title="${m.tipo==='bigtrail'?'Big Trail: toca para quitar':'Toca para marcar como Big Trail'}" style="border:1px solid ${m.tipo==='bigtrail'?'var(--acento-txt)':'var(--gris2)'};background:${m.tipo==='bigtrail'?'var(--tint-acento)':'transparent'};color:${m.tipo==='bigtrail'?'var(--acento-txt)':'var(--gris5)'};border-radius:5px;font-size:10px;font-weight:700;padding:1px 5px;cursor:pointer">${m.tipo==='bigtrail'?'BIG TRAIL':'BT'}</button> <button class="mw-delmod" data-id="${m.id}" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0 2px">×</button></span>`).join('')}
-      </div>
+      ${abierta ? `<div class="mw-lista">${vis.map(m=>{
+        const bt = m.tipo==='bigtrail';
+        return `<div class="mw-modelo">
+          <div class="mw-mn"><b>${esc(m.modelo)}</b><small>${m.cc} cc · ${esc(CAT_LABEL[catDeMoto(m.cc,m.tipo)])}</small></div>
+          <div class="mw-seg">
+            <button class="mw-bt${bt?'':' on'}" data-id="${m.id}" data-t="normal">Normal</button>
+            <button class="mw-bt${bt?' on bt':''}" data-id="${m.id}" data-t="bigtrail">Big Trail</button>
+          </div>
+          <button class="mw-delmod" data-id="${m.id}" title="Eliminar modelo">×</button>
+        </div>`; }).join('')}</div>` : ''}
     </div>`;
-  }).join('');
+  });
+  L.innerHTML = html || '<p style="text-align:center;color:var(--gris5);padding:18px">No hay marcas o modelos que coincidan.</p>';
 
   // Bind events
   L.querySelectorAll('.mw-up').forEach(b=>b.onclick=()=>moverMarca(marcas,Number(b.dataset.idx),-1));
   L.querySelectorAll('.mw-down').forEach(b=>b.onclick=()=>moverMarca(marcas,Number(b.dataset.idx),1));
   L.querySelectorAll('.mw-delmarca').forEach(b=>b.onclick=()=>eliminarMarca(b.dataset.marca));
   L.querySelectorAll('.mw-delmod').forEach(b=>b.onclick=()=>eliminarModelo(b.dataset.id));
-  L.querySelectorAll('.mw-bt').forEach(b=>b.onclick=()=>cambiarTipoModelo(b.dataset.id));
+  L.querySelectorAll('.mw-bt').forEach(b=>b.onclick=()=>cambiarTipoModelo(b.dataset.id, b.dataset.t));
+  L.querySelectorAll('.mw-tog').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.marca; if (mwAbiertas.has(k)) mwAbiertas.delete(k); else mwAbiertas.add(k);
+    renderMotosAdmin();
+  });
 }
 
 function moverMarca(marcas, idx, dir){
@@ -2565,6 +2882,8 @@ async function eliminarMarca(marca){
 }
 
 async function eliminarModelo(id){
+  const m = allMotos.find(x=>String(x.id)===String(id));
+  if (m && !confirm('¿Eliminar el modelo '+m.marca+' '+m.modelo+'?')) return;
   await db.from('premium_motos').delete().eq('id',id);
   allMotos = allMotos.filter(m=>m.id!==id);
   renderMotosAdmin();
@@ -2591,10 +2910,12 @@ function mwPreview(){
     : 'Categoría en el cotizador: —';
 }
 $('#mwCc').addEventListener('input', mwPreview);
+$('#mwBuscar').addEventListener('input', ()=>renderMotosAdmin());
 $('#mwTipo').addEventListener('change', mwPreview);
-async function cambiarTipoModelo(id){
+async function cambiarTipoModelo(id, destino){
   const m = allMotos.find(x=>String(x.id)===String(id)); if(!m) return;
-  const nuevo = m.tipo==='bigtrail' ? 'normal' : 'bigtrail';
+  const nuevo = destino || (m.tipo==='bigtrail' ? 'normal' : 'bigtrail');
+  if ((m.tipo||'normal')===nuevo) return;
   const { error } = await db.from('premium_motos').update({tipo:nuevo}).eq('id',id);
   if (error){ toast('No se pudo cambiar: '+error.message,'bad'); return; }
   m.tipo = nuevo;
@@ -2710,12 +3031,40 @@ function nuevoFolio(){
   return `MM-${y}${m}${day}-${r}`;
 }
 
+/* ---- tiempo de trabajo: desde que se toma el servicio hasta que queda "Lista para retiro" ---- */
+function fmtDur(seg){
+  seg = Math.max(0, Math.round(seg||0));
+  const h = Math.floor(seg/3600), m = Math.floor((seg%3600)/60);
+  return h ? (h+' h '+String(m).padStart(2,'0')+' min') : (m+' min');
+}
+// segundos {total, pausa, trabajado, enCurso}; null si el servicio no tiene medición (nadie lo tomó o es anterior a esta función)
+function tiemposServicio(s, ahora){
+  if (!s || !s.tomado_at) return null;
+  const ini = new Date(s.tomado_at).getTime();
+  const fin = s.listo_at ? new Date(s.listo_at).getTime() : (ahora || Date.now());
+  const total = Math.max(0, fin-ini);
+  let pausa = (Number(s.pausa_seg)||0)*1000;
+  if (s.pausa_desde) pausa += Math.max(0, fin - new Date(s.pausa_desde).getTime());   // pausa en curso
+  pausa = Math.min(pausa, total);
+  return { total: total/1000, pausa: pausa/1000, trabajado: (total-pausa)/1000, enCurso: !s.listo_at };
+}
+let tiempoTimer = null;
+function pintarTiempo(){
+  const el = $('#edTiempo'); if (!el || !current) return;
+  if (!current.tomado_por){ el.textContent=''; return; }
+  const t = tiemposServicio(current);
+  if (!t){ el.textContent='⏱️ El tiempo se mide desde que alguien toma el servicio con "Tomar este servicio".'; return; }
+  el.innerHTML = (t.enCurso ? '⏱️ En curso: <b>' : '✅ Listo en: <b>') + fmtDur(t.trabajado) + '</b> trabajados'
+    + (t.pausa>=60 ? ' · '+fmtDur(t.pausa)+' en pausa' : '') + ' · '+fmtDur(t.total)+' desde que se tomó';
+}
+function iniciarTiempo(){ clearInterval(tiempoTimer); pintarTiempo(); tiempoTimer = setInterval(pintarTiempo, 30000); }
 function pintarTomado(){
   const t=$('#edTomado'), b=$('#edTomarBtn'), s=$('#edSoltarBtn'); if(!t||!b||!s) return;
   t.innerHTML = current.tomado_por ? `🔧 Realizando: <b>${esc(current.tomado_por)}</b>` : 'Nadie lo está realizando todavía';
   b.classList.toggle('hidden', current.tomado_por===trabajadorNombre);
   b.textContent = current.tomado_por ? 'Tomar yo' : 'Tomar este servicio';
   s.classList.toggle('hidden', !current.tomado_por);
+  pintarTiempo();
 }
 $('#edTomarBtn').onclick = ()=>{ current.tomado_por = trabajadorNombre; pintarTomado(); autoguardar(true); toast('Quedó asignado a ti','ok'); };
 $('#edSoltarBtn').onclick = ()=>{ current.tomado_por = null; pintarTomado(); autoguardar(true); toast('Queda disponible para que otro lo tome','ok'); };
@@ -2815,10 +3164,11 @@ async function openEditor(s){
 
   $('#editor').classList.add('open');
   document.body.style.overflow='hidden';
+  iniciarTiempo();
   await ensureCatalogos();
   setMotoSelectsFromCurrent();
 }
-function closeEditor(){ $('#editor').classList.remove('open'); document.body.style.overflow=''; current=null; }
+function closeEditor(){ clearTimeout(autosaveTimer); clearInterval(tiempoTimer); $('#editor').classList.remove('open'); document.body.style.overflow=''; current=null; }
 
 /* ===== catálogos (motos + productos) para el editor ===== */
 let catsCargadas = false;
@@ -2979,6 +3329,7 @@ $$('#estadoBtns .est').forEach(b=>b.onclick=()=>{
   if (b.dataset.e==='entregado' && !current.fecha_entregado) current.fecha_entregado=new Date().toISOString();
   if (b.dataset.e!=='entregado'){ current.entrega_manual=false; }
   renderFirma();
+  autoguardar(true);   // se guarda al tiro: así el cronómetro se detiene justo cuando se aprieta "Lista para retiro"
 });
 // chips de motivo + campo "Otro"
 $$('#motivoChips .mch').forEach(c=>c.onclick=()=>{
@@ -3216,6 +3567,7 @@ async function fusionarConUltimoGuardado(){
   });
 }
 async function guardar(silent){
+  if (!current) return false;   // el servicio se cerró mientras corría el autoguardado
   pullForm();
   // un trabajador que entrega un servicio que no había tomado queda como quien lo hizo
   // (los entregados solo los ve el admin y quien los tomó)
@@ -3253,6 +3605,8 @@ async function guardar(silent){
   const ix = servicios.findIndex(x=>x.id===fila.id);
   if (ix>=0) servicios[ix]=fila; else servicios.unshift(fila);
   renderList();
+  // los tiempos los calcula la base al guardar: se copian al servicio abierto para que el cronómetro quede exacto
+  if (current){ ['tomado_at','listo_at','pausa_seg','pausa_desde'].forEach(k=>{ if (k in fila) current[k]=fila[k]; }); pintarTiempo(); }
   return true;
 }
 $('#saveBtn').onclick=async()=>{ if(await guardar(false)) {/* queda abierto */} };
